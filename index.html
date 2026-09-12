@@ -1,0 +1,675 @@
+ <!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fizik Tabanlı Silah Düellosu V5.5 - Gerçek Oda Bekleme Modu</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        html, body {
+            margin: 0; padding: 0; width: 100vw; height: 100vh;
+            background-color: #121212; color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden; display: flex; justify-content: center; align-items: center;
+        }
+        #game-wrapper {
+            position: relative; width: 100vw; height: 100vh;
+            display: flex; justify-content: center; align-items: center; background: #141414;
+        }
+        canvas { display: block; border: none; }
+        .screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(20, 20, 20, 0.95); display: flex;
+            flex-direction: column; align-items: center; justify-content: center; z-index: 100;
+        }
+        .hidden { display: none !important; }
+        h1 { font-size: 42px; margin-bottom: 10px; color: #00aad4; text-shadow: 0 4px 10px rgba(0,170,212,0.3); }
+        p { color: #aaa; margin-bottom: 20px; font-size: 15px; text-align: center; line-height: 1.5; max-width: 650px; }
+        .btn {
+            background-color: #002c5f; color: white; border: none; padding: 14px 35px;
+            font-size: 17px; font-weight: bold; border-radius: 30px; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4); transition: all 0.2s; margin: 8px; min-width: 220px;
+        }
+        .btn:hover { background-color: #00448f; transform: scale(1.05); }
+        .btn-secondary { background-color: #333; }
+        .btn-secondary:hover { background-color: #444; }
+        
+        #room-grid {
+            display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px;
+            max-height: 300px; overflow-y: auto; padding: 10px; background: rgba(0,0,0,0.3);
+            border-radius: 10px; margin-bottom: 20px; border: 1px solid #333;
+        }
+        .room-card {
+            background: #1e1e1e; border: 2px solid #333; padding: 10px; border-radius: 8px;
+            text-align: center; cursor: pointer; transition: all 0.2s; min-width: 110px;
+        }
+        .room-card:hover { border-color: #00aad4; background: #252525; }
+        .room-card.full { border-color: #f44336; opacity: 0.7; cursor: not-allowed; }
+        .room-card h4 { margin: 0 0 5px 0; color: #ffeb3b; font-size: 14px; }
+        .room-card span { font-size: 12px; color: #aaa; }
+
+        #hud {
+            position: absolute; top: 20px; left: 0; width: 100%;
+            display: flex; justify-content: space-around; align-items: center;
+            font-size: 22px; font-weight: bold; pointer-events: none; z-index: 50; padding: 0 50px;
+        }
+        #player-hud { color: #4caf50; }
+        #bot-hud { color: #f44336; }
+        #ability-container {
+            display: flex; flex-direction: column; align-items: center; gap: 5px;
+            background: rgba(0,0,0,0.6); padding: 8px 15px; border-radius: 10px; min-width: 200px;
+        }
+        #ability-hud { color: #ffeb3b; font-size: 14px; }
+        #bar-bg { width: 100%; height: 6px; background: #444; border-radius: 3px; overflow: hidden; }
+        #bar-fill { width: 100%; height: 100%; background: #ffeb3b; transition: width 0.1s linear; }
+
+        #pd-btn {
+            position: absolute; top: 20px; left: 20px; z-index: 60;
+            background-color: #333; color: #fff; border: 2px solid #555; padding: 10px 18px;
+            font-size: 14px; font-weight: bold; border-radius: 6px; cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: all 0.2s;
+        }
+        #pd-btn:hover { background-color: #444; }
+        #pd-btn.active {
+            background-color: #ff9800; border-color: #ffb74d; color: #000;
+            box-shadow: 0 0 15px rgba(255, 152, 0, 0.6); animation: pulse 1.5s infinite;
+        }
+
+        #pause-btn {
+            position: absolute; top: 20px; right: 20px; z-index: 60;
+            background-color: #333; color: #fff; border: 2px solid #555; padding: 10px 20px;
+            font-size: 14px; font-weight: bold; border-radius: 6px; cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: all 0.2s;
+        }
+        #pause-btn:hover { background-color: #444; }
+
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.8; } 100% { opacity: 1; } }
+
+        #waiting-screen, #pause-screen {
+            background: rgba(0,0,0,0.85);
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 90;
+        }
+        .spinner {
+            border: 4px solid rgba(255,255,255,0.1); width: 50px; height: 50px;
+            border-radius: 50%; border-left-color: #00aad4; animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+<div id="game-wrapper">
+    <button id="pd-btn" class="hidden" onclick="togglePurDikkat()">PÜR DİKKAT [P]</button>
+    <button id="pause-btn" class="hidden" onclick="togglePause()">DURAKLAT [ESC]</button>
+
+    <div id="hud" class="hidden">
+        <div id="player-hud"><span id="p1-label">OYUNCU 1</span>: <span id="p-score">0</span>/10</div>
+        <div id="ability-container">
+            <div id="ability-hud">TARAMALI: HAZIR</div>
+            <div id="bar-bg"><div id="bar-fill"></div></div>
+        </div>
+        <div id="bot-hud"><span id="p2-label">OYUNCU 2</span>: <span id="b-score">0</span>/10</div>
+    </div>
+
+    <!-- ANA MENÜ -->
+    <div id="main-menu" class="screen">
+        <h1>SİLAH DÜELLOSU V5.5</h1>
+        <p>
+            <b>Kural:</b> İlk 10 puana ulaşan kazanır!<br>
+            <b>Çok Oyunculu Oda Sistemi:</b> İkinci oyuncu odaya girmeden oyun başlamaz.
+        </p>
+        <button class="btn" onclick="startBotGameMode()">BOT MODU (TEK OYUNCU)</button>
+        <button class="btn btn-secondary" onclick="showRoomMenu()">ÇOK OYUNCULU ODA SEÇİMİ</button>
+    </div>
+
+    <!-- ODA SEÇİM MENÜSÜ -->
+    <div id="room-menu" class="screen hidden">
+        <h1>ÇOK OYUNCUULÜ ODA SEÇİMİ</h1>
+        <p>Aktif odalar (localStorage tabanlı gerçek sekme/oyuncu senkronizasyonu)</p>
+        <div id="room-grid"></div>
+        <button class="btn btn-secondary" onclick="showMainMenu()">GERİ DÖN</button>
+    </div>
+
+    <!-- İKİNCİ OYUNCU BEKLEME EKRANI -->
+    <div id="waiting-screen" class="hidden">
+        <div class="spinner"></div>
+        <h1 style="color: #ffeb3b; font-size: 28px;">RAKİP BEKLENİYOR...</h1>
+        <p id="waiting-info">Oda dolana kadar oyun başlatılmayacak. İkinci bir tarayıcı sekmesi açıp aynı odaya girin.</p>
+        <button class="btn btn-secondary" onclick="leaveRoom()">ODADAN AYRIL</button>
+    </div>
+
+    <!-- OYUN DURAKLATILDI -->
+    <div id="pause-screen" class="hidden">
+        <h1>OYUN DURAKLATILDI</h1>
+        <button class="btn" onclick="togglePause()">DEVAM ET</button>
+        <button class="btn btn-secondary" onclick="showMainMenu()">ANA MENÜYE DÖN</button>
+    </div>
+
+    <!-- OYUN BİTTİ -->
+    <div id="game-over-menu" class="screen hidden">
+        <h1 id="game-over-title" style="color:#f44336;">OYUN BİTTİ!</h1>
+        <p id="game-result-text"></p>
+        <button class="btn" onclick="restartGame()">YENİDEN BAŞLAT</button>
+        <button class="btn btn-secondary" onclick="showMainMenu()">ANA MENÜ</button>
+    </div>
+
+    <div id="canvas-container"></div>
+</div>
+
+<script>
+    const { Engine, Render, Runner, Bodies, Composite, Body, Vector, Events } = Matter;
+    let engine, render, runner;
+    let p1Score = 0, p2Score = 0;
+    let playerWeapon, botWeapon;
+    let bullets = [];
+    let isGameRunning = false;
+    let isPaused = false;
+    let botInterval;
+
+    let isP1RightClick = false;
+    let isP2Shift = false;
+    let isP1Cooldown = false;
+    let p1RapidInterval, p2RapidInterval;
+    let p1RapidTime = 5000;
+    const maxRapidTime = 5000;
+    const targetScore = 10;
+
+    let isPurDikkatActive = false;
+    let timeScale = 1.0;
+    let isMultiplayer = false;
+    let currentRoomId = null;
+    let checkRoomInterval;
+
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+    let leftWall, rightWall, topWall, bottomWall;
+
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playSound(type) {
+        if (!audioCtx) return;
+        if (audioCtx.state === 'suspended') { audioCtx.resume(); }
+        const osc = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        const now = audioCtx.currentTime;
+
+        if (type === 'fire') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(300, now);
+            osc.frequency.exponentialRampToValueAtTime(40, now + 0.15);
+            gainNode.gain.setValueAtTime(0.3, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+            osc.start(now); osc.stop(now + 0.15);
+        } else if (type === 'hit') {
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(120, now);
+            osc.frequency.exponentialRampToValueAtTime(20, now + 0.3);
+            gainNode.gain.setValueAtTime(0.4, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+            osc.start(now); osc.stop(now + 0.3);
+        }
+    }
+
+    // LocalStorage tabanlı gerçek 20 oda ve oyuncu kontrolü
+    function getRoomsData() {
+        let data = localStorage.getItem('duel_rooms');
+        if (!data) {
+            let initial = {};
+            for (let i = 1; i <= 20; i++) initial[i] = { p1: false, p2: false };
+            localStorage.setItem('duel_rooms', JSON.stringify(initial));
+            return initial;
+        }
+        return JSON.parse(data);
+    }
+
+    function saveRoomsData(data) {
+        localStorage.setItem('duel_rooms', JSON.stringify(data));
+    }
+
+    function initRooms() {
+        renderRoomGrid();
+    }
+
+    function renderRoomGrid() {
+        const rooms = getRoomsData();
+        const grid = document.getElementById('room-grid');
+        grid.innerHTML = '';
+        for (let i = 1; i <= 20; i++) {
+            let r = rooms[i];
+            let count = (r.p1 ? 1 : 0) + (r.p2 ? 1 : 0);
+            const card = document.createElement('div');
+            card.className = `room-card ${count >= 2 ? 'full' : ''}`;
+            card.innerHTML = `<h4>Oda #${i}</h4><span>${count}/2 Oyuncu</span>`;
+            if (count < 2) {
+                card.onclick = () => joinRoom(i);
+            }
+            grid.appendChild(card);
+        }
+    }
+
+    window.addEventListener('contextmenu', e => e.preventDefault());
+    window.addEventListener('resize', () => {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        if (render) {
+            render.canvas.width = width;
+            render.canvas.height = height;
+            render.options.width = width;
+            render.options.height = height;
+        }
+        if (engine && bottomWall) {
+            Body.setPosition(bottomWall, { x: width / 2, y: height + 20 });
+            Body.setPosition(topWall, { x: width / 2, y: -20 });
+            Body.setPosition(leftWall, { x: -20, y: height / 2 });
+            Body.setPosition(rightWall, { x: width + 20, y: height / 2 });
+        }
+    });
+
+    window.addEventListener('keydown', (e) => {
+        if (!isGameRunning) return;
+        if (e.key === 'Escape') togglePause();
+        if (!isMultiplayer && (e.key === 'p' || e.key === 'P')) togglePurDikkat();
+
+        if (isMultiplayer && !isPaused) {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                if (!isP2Shift && botWeapon) fire(botWeapon, 'bot');
+            }
+            if (e.key === 'Shift' && !isP2Shift) {
+                isP2Shift = true;
+                startP2RapidFire();
+            }
+        }
+    });
+
+    window.addEventListener('keyup', (e) => {
+        if (isMultiplayer && e.key === 'Shift') {
+            isP2Shift = false;
+            stopP2RapidFire();
+        }
+    });
+
+    function initEngine() {
+        if (engine) return;
+        engine = Engine.create({ gravity: { y: 1.1 } });
+        render = Render.create({
+            element: document.getElementById('canvas-container'),
+            engine: engine,
+            options: { width: width, height: height, wireframes: false, background: '#141414' }
+        });
+        Render.run(render);
+        runner = Runner.create();
+        Runner.run(runner, engine);
+
+        const wallOptions = { isStatic: true, render: { fillStyle: '#222' }, restitution: 0.5, friction: 0.01 };
+        bottomWall = Bodies.rectangle(width / 2, height + 20, width * 2, 60, wallOptions);
+        topWall = Bodies.rectangle(width / 2, -20, width * 2, 60, wallOptions);
+        leftWall = Bodies.rectangle(-20, height / 2, 60, height * 2, wallOptions);
+        rightWall = Bodies.rectangle(width + 20, height / 2, 60, height * 2, wallOptions);
+
+        Composite.add(engine.world, [bottomWall, topWall, leftWall, rightWall]);
+
+        Events.on(engine, 'beforeUpdate', () => {
+            if (!isGameRunning || isPaused) return;
+
+            engine.timing.timeScale = timeScale;
+            if (isP1RightClick && !isP1Cooldown) {
+                p1RapidTime -= 16.67 * timeScale;
+                updateRapidBar();
+                if (p1RapidTime <= 0) { p1RapidTime = 0; startP1Cooldown(); }
+            }
+
+            bullets = bullets.filter(b => {
+                Body.setVelocity(b.body, { x: b.velocity.x * timeScale, y: b.velocity.y * timeScale });
+                const pos = b.body.position;
+                if (pos.x < 0 || pos.x > width || pos.y < 0 || pos.y > height) {
+                    Composite.remove(engine.world, b.body);
+                    return false;
+                }
+
+                if (b.type === 'player') {
+                    if (Vector.magnitude(Vector.sub(pos, botWeapon.position)) < 28) {
+                        playSound('hit');
+                        p1Score++;
+                        document.getElementById('p-score').textContent = p1Score;
+                        Composite.remove(engine.world, b.body);
+                        if (p1Score >= targetScore) endGame("OYUNCU 1 KAZANDI!");
+                        else nextRound();
+                        return false;
+                    }
+                } else if (b.type === 'bot') {
+                    if (Vector.magnitude(Vector.sub(pos, playerWeapon.position)) < 28) {
+                        playSound('hit');
+                        p2Score++;
+                        document.getElementById('b-score').textContent = p2Score;
+                        Composite.remove(engine.world, b.body);
+                        if (p2Score >= targetScore) endGame("OYUNCU 2 KAZANDI!");
+                        else nextRound();
+                        return false;
+                    }
+                }
+                return true;
+            });
+        });
+    }
+
+    function togglePurDikkat() {
+        if (!isGameRunning || isPaused || isMultiplayer) return;
+        isPurDikkatActive = !isPurDikkatActive;
+        const pdBtn = document.getElementById('pd-btn');
+        if (isPurDikkatActive) {
+            timeScale = 0.33;
+            pdBtn.classList.add('active');
+            pdBtn.textContent = "PÜR DİKKAT: AKTİF";
+            startBotAI();
+        } else {
+            timeScale = 1.0;
+            pdBtn.classList.remove('active');
+            pdBtn.textContent = "PÜR DİKKAT [P]";
+            startBotAI();
+        }
+    }
+
+    function togglePause() {
+        if (!isGameRunning) return;
+        isPaused = !isPaused;
+        const pauseScreen = document.getElementById('pause-screen');
+        if (isPaused) pauseScreen.classList.remove('hidden');
+        else pauseScreen.classList.add('hidden');
+    }
+
+    function createPistol(x, y, color, isOpponent = false) {
+        const barrelOffsetX = isOpponent ? -10 : 10;
+        const barrel = Bodies.rectangle(x + barrelOffsetX, y, 35, 12, { render: { fillStyle: color } });
+        const grip = Bodies.rectangle(x - 5, y + 12, 12, 22, { render: { fillStyle: color } });
+        const pistol = Body.create({ parts: [barrel, grip], restitution: 0.5, friction: 0.02, frictionAir: 0.01 });
+        barrel.label = "namlu";
+        Body.setPosition(pistol, { x: x, y: y });
+        Body.setAngularVelocity(pistol, (Math.random() - 0.5) * 0.2);
+        return pistol;
+    }
+
+    function startBotGameMode() {
+        isMultiplayer = false;
+        document.getElementById('p1-label').textContent = "OYUNCU";
+        document.getElementById('p2-label').textContent = "BOT";
+        document.getElementById('pd-btn').classList.remove('hidden');
+        startGameCommon();
+        startBotAI();
+    }
+
+    function showRoomMenu() {
+        document.getElementById('main-menu').classList.add('hidden');
+        document.getElementById('room-menu').classList.remove('hidden');
+        initRooms();
+    }
+
+    function showMainMenu() {
+        leaveRoom();
+        document.getElementById('main-menu').classList.remove('hidden');
+        document.getElementById('room-menu').classList.add('hidden');
+        document.getElementById('game-over-menu').classList.add('hidden');
+        document.getElementById('hud').classList.add('hidden');
+        document.getElementById('pd-btn').classList.add('hidden');
+        document.getElementById('pause-btn').classList.add('hidden');
+        document.getElementById('waiting-screen').classList.add('hidden');
+        isGameRunning = false;
+    }
+
+    function joinRoom(roomId) {
+        currentRoomId = roomId;
+        isMultiplayer = true;
+        document.getElementById('room-menu').classList.add('hidden');
+        document.getElementById('waiting-screen').classList.remove('hidden');
+
+        // Oda doluluğunu kaydet
+        let rooms = getRoomsData();
+        if (!rooms[roomId].p1) {
+            rooms[roomId].p1 = true;
+        } else if (!rooms[roomId].p2) {
+            rooms[roomId].p2 = true;
+        }
+        saveRoomsData(rooms);
+
+        // İkinci oyuncu gelene kadar periyodik kontrol (Bekleme Modu)
+        clearInterval(checkRoomInterval);
+        checkRoomInterval = setInterval(() => {
+            let currentRooms = getRoomsData();
+            let r = currentRooms[roomId];
+            if (r.p1 && r.p2) {
+                clearInterval(checkRoomInterval);
+                document.getElementById('waiting-screen').classList.add('hidden');
+                document.getElementById('p1-label').textContent = "OYUNCU 1";
+                document.getElementById('p2-label').textContent = "OYUNCU 2";
+                document.getElementById('pd-btn').classList.add('hidden');
+                startGameCommon();
+            }
+        }, 500);
+    }
+
+    function leaveRoom() {
+        clearInterval(checkRoomInterval);
+        if (currentRoomId) {
+            let rooms = getRoomsData();
+            rooms[currentRoomId] = { p1: false, p2: false };
+            saveRoomsData(rooms);
+            currentRoomId = null;
+        }
+    }
+
+    function startGameCommon() {
+        document.getElementById('main-menu').classList.add('hidden');
+        document.getElementById('room-menu').classList.add('hidden');
+        document.getElementById('waiting-screen').classList.add('hidden');
+        document.getElementById('game-over-menu').classList.add('hidden');
+        document.getElementById('hud').classList.remove('hidden');
+        document.getElementById('pause-btn').classList.remove('hidden');
+
+        p1Score = 0;
+        p2Score = 0;
+        document.getElementById('p-score').textContent = "0";
+        document.getElementById('b-score').textContent = "0";
+
+        isPurDikkatActive = false;
+        isPaused = false;
+        timeScale = 1.0;
+        resetRapidFireState();
+        initEngine();
+        isGameRunning = true;
+        resetRoundData();
+    }
+
+    function nextRound() {
+        if (!isGameRunning) return;
+        stopP1RapidFire();
+        stopP2RapidFire();
+        isP1RightClick = false;
+        isP2Shift = false;
+        resetRoundData();
+    }
+
+    function resetRoundData() {
+        if (playerWeapon) Composite.remove(engine.world, playerWeapon);
+        if (botWeapon) Composite.remove(engine.world, botWeapon);
+        bullets.forEach(b => Composite.remove(engine.world, b.body));
+        bullets = [];
+
+        playerWeapon = createPistol(width * 0.25, 100, '#4caf50', false);
+        botWeapon = createPistol(width * 0.75, 100, '#f44336', true);
+        Composite.add(engine.world, [playerWeapon, botWeapon]);
+    }
+
+    function startBotAI() {
+        clearInterval(botInterval);
+        if (isMultiplayer) return;
+        botInterval = setInterval(() => {
+            if (!isGameRunning || isPaused || !botWeapon) return;
+            fire(botWeapon, 'bot');
+        }, 850);
+    }
+
+    function fire(fromWeapon, type) {
+        playSound('fire');
+        const barrelPart = fromWeapon.parts.find(p => p.label === "namlu") || fromWeapon.parts[1];
+        let angle = fromWeapon.angle;
+        const barrelAngle = barrelPart.angle;
+
+        let fireX = barrelPart.position.x + Math.cos(barrelAngle) * 17.5;
+        let fireY = barrelPart.position.y + Math.sin(barrelAngle) * 17.5;
+
+        if (type === 'bot') {
+            angle += Math.PI;
+            fireX = barrelPart.position.x - Math.cos(barrelAngle) * 17.5;
+            fireY = barrelPart.position.y - Math.sin(barrelAngle) * 17.5;
+        }
+
+        const bullet = Bodies.circle(fireX, fireY, 4, { isSensor: true, render: { fillStyle: '#ffeb3b' } });
+        const speed = 24;
+        const velocity = { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed };
+        const recoilForce = 0.025;
+
+        Body.applyForce(fromWeapon, fromWeapon.position, {
+            x: -Math.cos(angle) * recoilForce,
+            y: -Math.sin(angle) * recoilForce
+        });
+
+        Composite.add(engine.world, bullet);
+        bullets.push({ body: bullet, velocity: velocity, type: type });
+    }
+
+    window.addEventListener('mousedown', (e) => {
+        if (!isGameRunning || isPaused || !playerWeapon) return;
+        if (e.button === 0 && !isP1RightClick) {
+            fire(playerWeapon, 'player');
+        } else if (e.button === 2 && !isP1Cooldown) {
+            isP1RightClick = true;
+            startP1RapidFire();
+        }
+    });
+
+    window.addEventListener('mouseup', (e) => {
+        if (e.button === 2) {
+            isP1RightClick = false;
+            stopP1RapidFire();
+        }
+    });
+
+    function startP1RapidFire() {
+        clearInterval(p1RapidInterval);
+        document.getElementById('ability-hud').textContent = "TARAMALI: ATEŞLENİYOR 🔥";
+        document.getElementById('ability-hud').style.color = "#f44336";
+        document.getElementById('bar-fill').style.background = "#f44336";
+
+        p1RapidInterval = setInterval(() => {
+            if (isGameRunning && !isPaused && playerWeapon && !isP1Cooldown) {
+                fire(playerWeapon, 'player');
+            }
+        }, 100);
+    }
+
+    function stopP1RapidFire() {
+        clearInterval(p1RapidInterval);
+        if (!isP1Cooldown) {
+            document.getElementById('ability-hud').textContent = "TARAMALI: HAZIR";
+            document.getElementById('ability-hud').style.color = "#ffeb3b";
+            document.getElementById('bar-fill').style.background = "#ffeb3b";
+        }
+    }
+
+    function startP1Cooldown() {
+        isP1RightClick = false;
+        isP1Cooldown = true;
+        stopP1RapidFire();
+
+        const infoHud = document.getElementById('ability-hud');
+        const barFill = document.getElementById('bar-fill');
+        infoHud.style.color = "#aaa";
+        barFill.style.background = "#555";
+
+        let cooldownTime = 10;
+        infoHud.textContent = `DOLUYOR: ${cooldownTime}sn`;
+
+        const cdInterval = setInterval(() => {
+            if (isPaused) return;
+            cooldownTime--;
+            infoHud.textContent = `DOLUYOR: ${cooldownTime}sn`;
+            let percent = ((10 - cooldownTime) / 10) * 100;
+            barFill.style.width = `${percent}%`;
+
+            if (cooldownTime <= 0) {
+                clearInterval(cdInterval);
+                isP1Cooldown = false;
+                p1RapidTime = maxRapidTime;
+                updateRapidBar();
+                infoHud.textContent = "TARAMALI: HAZIR";
+                infoHud.style.color = "#ffeb3b";
+                barFill.style.background = "#ffeb3b";
+            }
+        }, 1000);
+    }
+
+    function startP2RapidFire() {
+        clearInterval(p2RapidInterval);
+        p2RapidInterval = setInterval(() => {
+            if (isGameRunning && !isPaused && botWeapon && isP2Shift) {
+                fire(botWeapon, 'bot');
+            }
+        }, 100);
+    }
+
+    function stopP2RapidFire() {
+        clearInterval(p2RapidInterval);
+    }
+
+    function updateRapidBar() {
+        const percent = (p1RapidTime / maxRapidTime) * 100;
+        document.getElementById('bar-fill').style.width = `${Math.max(0, percent)}%`;
+    }
+
+    function resetRapidFireState() {
+        clearInterval(p1RapidInterval);
+        clearInterval(p2RapidInterval);
+        isP1RightClick = false;
+        isP2Shift = false;
+        isP1Cooldown = false;
+        p1RapidTime = maxRapidTime;
+        updateRapidBar();
+        const infoHud = document.getElementById('ability-hud');
+        if (infoHud) {
+            infoHud.textContent = "TARAMALI: HAZIR";
+            infoHud.style.color = "#ffeb3b";
+            document.getElementById('bar-fill').style.background = "#ffeb3b";
+        }
+    }
+
+    function endGame(message) {
+        leaveRoom();
+        isGameRunning = false;
+        isP1RightClick = false;
+        isP2Shift = false;
+        clearInterval(botInterval);
+        clearInterval(p1RapidInterval);
+        clearInterval(p2RapidInterval);
+        document.getElementById('hud').classList.add('hidden');
+        document.getElementById('pd-btn').classList.add('hidden');
+        document.getElementById('pause-btn').classList.add('hidden');
+        document.getElementById('pause-screen').classList.add('hidden');
+        document.getElementById('game-over-menu').classList.remove('hidden');
+        
+        document.getElementById('game-over-title').textContent = message;
+        document.getElementById('game-result-text').innerHTML = `Final Skorlar:<br>P1: <b>${p1Score}</b> | P2: <b>${p2Score}</b>`;
+    }
+
+    function restartGame() {
+        if (isMultiplayer) {
+            showRoomMenu();
+        } else {
+            startBotGameMode();
+        }
+    }
+</script>
+</body>
+</html>

@@ -1,675 +1,615 @@
+ 
  <!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fizik Tabanlı Silah Düellosu V5.5 - Gerçek Oda Bekleme Modu</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <title>Tapınak Kaçışı</title>
     <style>
-        * { box-sizing: border-box; }
+        * { box-sizing: border-box; user-select: none; }
         html, body {
             margin: 0; padding: 0; width: 100vw; height: 100vh;
-            background-color: #121212; color: white;
+            background-color: #0b0b0e; color: white;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             overflow: hidden; display: flex; justify-content: center; align-items: center;
         }
         #game-wrapper {
             position: relative; width: 100vw; height: 100vh;
-            display: flex; justify-content: center; align-items: center; background: #141414;
+            display: flex; justify-content: center; align-items: center; background: #111;
         }
-        canvas { display: block; border: none; }
+        canvas { display: block; box-shadow: 0 0 50px rgba(0,0,0,0.95); }
         .screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(20, 20, 20, 0.95); display: flex;
+            background: rgba(12, 12, 18, 0.95); display: flex;
             flex-direction: column; align-items: center; justify-content: center; z-index: 100;
         }
         .hidden { display: none !important; }
-        h1 { font-size: 42px; margin-bottom: 10px; color: #00aad4; text-shadow: 0 4px 10px rgba(0,170,212,0.3); }
-        p { color: #aaa; margin-bottom: 20px; font-size: 15px; text-align: center; line-height: 1.5; max-width: 650px; }
+        h1 { font-size: 48px; margin-bottom: 5px; color: #f39c12; text-shadow: 0 4px 15px rgba(243,156,18,0.5); text-align: center; }
+        p { color: #ccc; margin-bottom: 25px; font-size: 16px; text-align: center; line-height: 1.6; max-width: 600px; }
         .btn {
-            background-color: #002c5f; color: white; border: none; padding: 14px 35px;
-            font-size: 17px; font-weight: bold; border-radius: 30px; cursor: pointer;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.4); transition: all 0.2s; margin: 8px; min-width: 220px;
+            background-color: #d35400; color: white; border: none; padding: 15px 40px;
+            font-size: 18px; font-weight: bold; border-radius: 30px; cursor: pointer;
+            box-shadow: 0 5px 20px rgba(211,84,0,0.4); transition: all 0.2s; margin: 8px; min-width: 240px;
         }
-        .btn:hover { background-color: #00448f; transform: scale(1.05); }
-        .btn-secondary { background-color: #333; }
-        .btn-secondary:hover { background-color: #444; }
-        
-        #room-grid {
-            display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px;
-            max-height: 300px; overflow-y: auto; padding: 10px; background: rgba(0,0,0,0.3);
-            border-radius: 10px; margin-bottom: 20px; border: 1px solid #333;
-        }
-        .room-card {
-            background: #1e1e1e; border: 2px solid #333; padding: 10px; border-radius: 8px;
-            text-align: center; cursor: pointer; transition: all 0.2s; min-width: 110px;
-        }
-        .room-card:hover { border-color: #00aad4; background: #252525; }
-        .room-card.full { border-color: #f44336; opacity: 0.7; cursor: not-allowed; }
-        .room-card h4 { margin: 0 0 5px 0; color: #ffeb3b; font-size: 14px; }
-        .room-card span { font-size: 12px; color: #aaa; }
+        .btn:hover { background-color: #e67e22; transform: scale(1.05); }
+        .btn-secondary { background-color: #34495e; box-shadow: 0 5px 20px rgba(0,0,0,0.4); }
+        .btn-secondary:hover { background-color: #2c3e50; }
 
         #hud {
-            position: absolute; top: 20px; left: 0; width: 100%;
-            display: flex; justify-content: space-around; align-items: center;
-            font-size: 22px; font-weight: bold; pointer-events: none; z-index: 50; padding: 0 50px;
+            position: absolute; top: 20px; left: 20px; right: 160px;
+            display: flex; justify-content: flex-start; align-items: center; gap: 15px;
+            font-size: 18px; font-weight: bold; pointer-events: none; z-index: 50;
         }
-        #player-hud { color: #4caf50; }
-        #bot-hud { color: #f44336; }
-        #ability-container {
-            display: flex; flex-direction: column; align-items: center; gap: 5px;
-            background: rgba(0,0,0,0.6); padding: 8px 15px; border-radius: 10px; min-width: 200px;
-        }
-        #ability-hud { color: #ffeb3b; font-size: 14px; }
-        #bar-bg { width: 100%; height: 6px; background: #444; border-radius: 3px; overflow: hidden; }
-        #bar-fill { width: 100%; height: 100%; background: #ffeb3b; transition: width 0.1s linear; }
-
-        #pd-btn {
-            position: absolute; top: 20px; left: 20px; z-index: 60;
-            background-color: #333; color: #fff; border: 2px solid #555; padding: 10px 18px;
-            font-size: 14px; font-weight: bold; border-radius: 6px; cursor: pointer;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: all 0.2s;
-        }
-        #pd-btn:hover { background-color: #444; }
-        #pd-btn.active {
-            background-color: #ff9800; border-color: #ffb74d; color: #000;
-            box-shadow: 0 0 15px rgba(255, 152, 0, 0.6); animation: pulse 1.5s infinite;
-        }
+        .hud-box { background: rgba(0,0,0,0.7); padding: 8px 16px; border-radius: 10px; border: 1px solid #444; backdrop-filter: blur(4px); }
 
         #pause-btn {
             position: absolute; top: 20px; right: 20px; z-index: 60;
-            background-color: #333; color: #fff; border: 2px solid #555; padding: 10px 20px;
-            font-size: 14px; font-weight: bold; border-radius: 6px; cursor: pointer;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: all 0.2s;
+            background-color: #2c3e50; color: #fff; border: 2px solid #4f6d7a; padding: 10px 22px;
+            font-size: 15px; font-weight: bold; border-radius: 8px; cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.4); transition: all 0.2s; pointer-events: auto;
         }
-        #pause-btn:hover { background-color: #444; }
+        #pause-btn:hover { background-color: #34495e; transform: scale(1.05); }
 
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.8; } 100% { opacity: 1; } }
+        /* EKRAN KONTROL TUŞLARI (MOBİL / DOKUNMATİK DESTEĞİ) */
+        #touch-controls {
+            position: absolute; bottom: 20px; width: 100%; display: flex;
+            justify-content: space-between; padding: 0 30px; z-index: 70; pointer-events: none;
+        }
+        .control-group { display: flex; gap: 12px; pointer-events: auto; }
+        .t-btn {
+            background: rgba(44, 62, 80, 0.8); border: 2px solid rgba(255,255,255,0.3);
+            color: white; font-size: 20px; font-weight: bold; width: 65px; height: 65px;
+            border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5); transition: background 0.1s;
+        }
+        .t-btn:active { background: rgba(211, 84, 0, 0.9); transform: scale(0.95); }
 
-        #waiting-screen, #pause-screen {
-            background: rgba(0,0,0,0.85);
+        #pause-screen, #game-over-screen {
+            background: rgba(10, 10, 15, 0.92);
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 90;
         }
-        .spinner {
-            border: 4px solid rgba(255,255,255,0.1); width: 50px; height: 50px;
-            border-radius: 50%; border-left-color: #00aad4; animation: spin 1s linear infinite;
-            margin-bottom: 20px;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 <div id="game-wrapper">
-    <button id="pd-btn" class="hidden" onclick="togglePurDikkat()">PÜR DİKKAT [P]</button>
     <button id="pause-btn" class="hidden" onclick="togglePause()">DURAKLAT [ESC]</button>
 
     <div id="hud" class="hidden">
-        <div id="player-hud"><span id="p1-label">OYUNCU 1</span>: <span id="p-score">0</span>/10</div>
-        <div id="ability-container">
-            <div id="ability-hud">TARAMALI: HAZIR</div>
-            <div id="bar-bg"><div id="bar-fill"></div></div>
+        <div class="hud-box" style="color: #f1c40f;">ALTIN: <span id="coin-hud">0</span></div>
+        <div class="hud-box" style="color: #3498db;">SKOR: <span id="score-hud">0</span></div>
+        <div class="hud-box" style="color: #e67e22;">EN YÜKSEK: <span id="high-score-hud">0</span></div>
+    </div>
+
+    <!-- EKRAN KONTROL BUTONLARI -->
+    <div id="touch-controls" class="hidden">
+        <div class="control-group">
+            <button class="t-btn" onclick="movePlayer('left')">◀</button>
+            <button class="t-btn" onclick="movePlayer('right')">▶</button>
         </div>
-        <div id="bot-hud"><span id="p2-label">OYUNCU 2</span>: <span id="b-score">0</span>/10</div>
+        <div class="control-group">
+            <button class="t-btn" onclick="movePlayer('slide')" style="background: rgba(192, 57, 43, 0.8);">▼</button>
+            <button class="t-btn" onclick="movePlayer('jump')" style="background: rgba(39, 174, 96, 0.8);">▲</button>
+        </div>
     </div>
 
     <!-- ANA MENÜ -->
     <div id="main-menu" class="screen">
-        <h1>SİLAH DÜELLOSU V5.5</h1>
+        <h1>TAPINAK KAÇIŞI</h1>
         <p>
-            <b>Kural:</b> İlk 10 puana ulaşan kazanır!<br>
-            <b>Çok Oyunculu Oda Sistemi:</b> İkinci oyuncu odaya girmeden oyun başlamaz.
+            Virajlı yollar, eğilip geçilen kemerler ve aksiyon dolu müzik eşliğinde kaçış!<br>
+            <b>Kontroller:</b> [SOL/SAĞ] Şerit / Viraj Dönüşü | [YUKARI] Zıpla | [AŞAĞI] Eğil<br>
+            [ESC] Duraklat
         </p>
-        <button class="btn" onclick="startBotGameMode()">BOT MODU (TEK OYUNCU)</button>
-        <button class="btn btn-secondary" onclick="showRoomMenu()">ÇOK OYUNCULU ODA SEÇİMİ</button>
+        <button class="btn" onclick="startGame()">MACERAYA BAŞLA</button>
     </div>
 
-    <!-- ODA SEÇİM MENÜSÜ -->
-    <div id="room-menu" class="screen hidden">
-        <h1>ÇOK OYUNCUULÜ ODA SEÇİMİ</h1>
-        <p>Aktif odalar (localStorage tabanlı gerçek sekme/oyuncu senkronizasyonu)</p>
-        <div id="room-grid"></div>
-        <button class="btn btn-secondary" onclick="showMainMenu()">GERİ DÖN</button>
-    </div>
-
-    <!-- İKİNCİ OYUNCU BEKLEME EKRANI -->
-    <div id="waiting-screen" class="hidden">
-        <div class="spinner"></div>
-        <h1 style="color: #ffeb3b; font-size: 28px;">RAKİP BEKLENİYOR...</h1>
-        <p id="waiting-info">Oda dolana kadar oyun başlatılmayacak. İkinci bir tarayıcı sekmesi açıp aynı odaya girin.</p>
-        <button class="btn btn-secondary" onclick="leaveRoom()">ODADAN AYRIL</button>
-    </div>
-
-    <!-- OYUN DURAKLATILDI -->
+    <!-- DURAKLATMA EKRANI -->
     <div id="pause-screen" class="hidden">
         <h1>OYUN DURAKLATILDI</h1>
+        <p>Soluklanma molası, kaldığın yerden devam et.</p>
         <button class="btn" onclick="togglePause()">DEVAM ET</button>
-        <button class="btn btn-secondary" onclick="showMainMenu()">ANA MENÜYE DÖN</button>
+        <button class="btn btn-secondary" onclick="returnToMenu()">ANA MENÜYE DÖN</button>
     </div>
 
-    <!-- OYUN BİTTİ -->
-    <div id="game-over-menu" class="screen hidden">
-        <h1 id="game-over-title" style="color:#f44336;">OYUN BİTTİ!</h1>
-        <p id="game-result-text"></p>
-        <button class="btn" onclick="restartGame()">YENİDEN BAŞLAT</button>
-        <button class="btn btn-secondary" onclick="showMainMenu()">ANA MENÜ</button>
+    <!-- OYUN BİTTİ EKRANI -->
+    <div id="game-over-screen" class="screen hidden">
+        <h1 style="color: #e74c3c;">ÇARPTIN!</h1>
+        <p id="final-stats-text" style="font-size: 18px; margin-bottom: 20px;"></p>
+        <button class="btn" onclick="startGame()">TEKRAR DENE</button>
+        <button class="btn btn-secondary" onclick="returnToMenu()">ANA MENÜ</button>
     </div>
 
-    <div id="canvas-container"></div>
+    <canvas id="gameCanvas"></canvas>
 </div>
 
 <script>
-    const { Engine, Render, Runner, Bodies, Composite, Body, Vector, Events } = Matter;
-    let engine, render, runner;
-    let p1Score = 0, p2Score = 0;
-    let playerWeapon, botWeapon;
-    let bullets = [];
-    let isGameRunning = false;
-    let isPaused = false;
-    let botInterval;
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
 
-    let isP1RightClick = false;
-    let isP2Shift = false;
-    let isP1Cooldown = false;
-    let p1RapidInterval, p2RapidInterval;
-    let p1RapidTime = 5000;
-    const maxRapidTime = 5000;
-    const targetScore = 10;
+    let canvasWidth = window.innerWidth;
+    let canvasHeight = window.innerHeight;
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
 
-    let isPurDikkatActive = false;
-    let timeScale = 1.0;
-    let isMultiplayer = false;
-    let currentRoomId = null;
-    let checkRoomInterval;
+    window.addEventListener('resize', () => {
+        canvasWidth = window.innerWidth;
+        canvasHeight = window.innerHeight;
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+    });
 
-    let width = window.innerWidth;
-    let height = window.innerHeight;
-    let leftWall, rightWall, topWall, bottomWall;
+    // Ses ve Arka Plan Müziği (Web Audio API)
+    let audioCtx = null;
+    let musicInterval = null;
 
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function initAudio() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+    }
+
     function playSound(type) {
         if (!audioCtx) return;
-        if (audioCtx.state === 'suspended') { audioCtx.resume(); }
         const osc = audioCtx.createOscillator();
         const gainNode = audioCtx.createGain();
         osc.connect(gainNode);
         gainNode.connect(audioCtx.destination);
         const now = audioCtx.currentTime;
 
-        if (type === 'fire') {
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(300, now);
-            osc.frequency.exponentialRampToValueAtTime(40, now + 0.15);
-            gainNode.gain.setValueAtTime(0.3, now);
+        if (type === 'coin') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(700, now);
+            osc.frequency.exponentialRampToValueAtTime(1400, now + 0.15);
+            gainNode.gain.setValueAtTime(0.15, now);
             gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
             osc.start(now); osc.stop(now + 0.15);
-        } else if (type === 'hit') {
-            osc.type = 'square';
-            osc.frequency.setValueAtTime(120, now);
-            osc.frequency.exponentialRampToValueAtTime(20, now + 0.3);
-            gainNode.gain.setValueAtTime(0.4, now);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-            osc.start(now); osc.stop(now + 0.3);
+        } else if (type === 'jump') {
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(160, now);
+            osc.frequency.exponentialRampToValueAtTime(450, now + 0.2);
+            gainNode.gain.setValueAtTime(0.2, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+            osc.start(now); osc.stop(now + 0.2);
+        } else if (type === 'crash') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(100, now);
+            osc.frequency.exponentialRampToValueAtTime(20, now + 0.5);
+            gainNode.gain.setValueAtTime(0.35, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+            osc.start(now); osc.stop(now + 0.5);
+        } else if (type === 'turn') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(300, now);
+            osc.frequency.exponentialRampToValueAtTime(600, now + 0.25);
+            gainNode.gain.setValueAtTime(0.2, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+            osc.start(now); osc.stop(now + 0.25);
         }
     }
 
-    // LocalStorage tabanlı gerçek 20 oda ve oyuncu kontrolü
-    function getRoomsData() {
-        let data = localStorage.getItem('duel_rooms');
-        if (!data) {
-            let initial = {};
-            for (let i = 1; i <= 20; i++) initial[i] = { p1: false, p2: false };
-            localStorage.setItem('duel_rooms', JSON.stringify(initial));
-            return initial;
+    // Arka Plan Aksiyon Müziği Döngüsü
+    let musicNotes = [130.81, 164.81, 196.00, 220.00, 261.63, 329.63];
+    let noteIndex = 0;
+    function startBackgroundMusic() {
+        if (musicInterval) clearInterval(musicInterval);
+        musicInterval = setInterval(() => {
+            if (gameState !== 'PLAYING' || !audioCtx) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(musicNotes[noteIndex % musicNotes.length], audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.2);
+                noteIndex++;
+            } catch(e) {}
+        }, 220);
+    }
+
+    function stopBackgroundMusic() {
+        if (musicInterval) {
+            clearInterval(musicInterval);
+            musicInterval = null;
         }
-        return JSON.parse(data);
     }
 
-    function saveRoomsData(data) {
-        localStorage.setItem('duel_rooms', JSON.stringify(data));
-    }
+    let gameState = 'MENU';
+    let score = 0;
+    let coins = 0;
+    let highScore = localStorage.getItem('temple_ult_high') ? parseInt(localStorage.getItem('temple_ult_high')) : 0;
+    document.getElementById('high-score-hud').textContent = highScore;
 
-    function initRooms() {
-        renderRoomGrid();
-    }
+    let gameSpeed = 9;
+    let distanceTraveled = 0;
+    let animTimer = 0;
 
-    function renderRoomGrid() {
-        const rooms = getRoomsData();
-        const grid = document.getElementById('room-grid');
-        grid.innerHTML = '';
-        for (let i = 1; i <= 20; i++) {
-            let r = rooms[i];
-            let count = (r.p1 ? 1 : 0) + (r.p2 ? 1 : 0);
-            const card = document.createElement('div');
-            card.className = `room-card ${count >= 2 ? 'full' : ''}`;
-            card.innerHTML = `<h4>Oda #${i}</h4><span>${count}/2 Oyuncu</span>`;
-            if (count < 2) {
-                card.onclick = () => joinRoom(i);
+    // Yol Eğriliği ve Kamera Yönetimi
+    let roadCurve = 0;
+    let targetCurve = 0;
+    let curveTimer = 0;
+
+    let player = {
+        lane: 0,
+        currentXOffset: 0,
+        y: 0,
+        z: 0,
+        isJumping: false,
+        jumpVelocity: 0,
+        isSliding: false,
+        slideTimer: 0
+    };
+
+    let obstacles = [];
+    let collectibleCoins = [];
+    let spawnTimer = 0;
+
+    function movePlayer(action) {
+        if (gameState !== 'PLAYING') return;
+        if (action === 'left') {
+            if (player.lane > -1) player.lane--;
+        } else if (action === 'right') {
+            if (player.lane < 1) player.lane++;
+        } else if (action === 'jump') {
+            if (!player.isJumping && !player.isSliding) {
+                player.isJumping = true;
+                player.jumpVelocity = -15;
+                playSound('jump');
             }
-            grid.appendChild(card);
+        } else if (action === 'slide') {
+            if (!player.isJumping && !player.isSliding) {
+                player.isSliding = true;
+                player.slideTimer = 45;
+            }
         }
     }
-
-    window.addEventListener('contextmenu', e => e.preventDefault());
-    window.addEventListener('resize', () => {
-        width = window.innerWidth;
-        height = window.innerHeight;
-        if (render) {
-            render.canvas.width = width;
-            render.canvas.height = height;
-            render.options.width = width;
-            render.options.height = height;
-        }
-        if (engine && bottomWall) {
-            Body.setPosition(bottomWall, { x: width / 2, y: height + 20 });
-            Body.setPosition(topWall, { x: width / 2, y: -20 });
-            Body.setPosition(leftWall, { x: -20, y: height / 2 });
-            Body.setPosition(rightWall, { x: width + 20, y: height / 2 });
-        }
-    });
 
     window.addEventListener('keydown', (e) => {
-        if (!isGameRunning) return;
-        if (e.key === 'Escape') togglePause();
-        if (!isMultiplayer && (e.key === 'p' || e.key === 'P')) togglePurDikkat();
-
-        if (isMultiplayer && !isPaused) {
-            if (e.code === 'Space') {
-                e.preventDefault();
-                if (!isP2Shift && botWeapon) fire(botWeapon, 'bot');
-            }
-            if (e.key === 'Shift' && !isP2Shift) {
-                isP2Shift = true;
-                startP2RapidFire();
-            }
+        if (e.key === 'Escape') {
+            if (gameState === 'PLAYING' || gameState === 'PAUSED') togglePause();
+            return;
         }
+        if (gameState !== 'PLAYING') return;
+
+        if (e.key === 'ArrowLeft' || e.key === 'a') movePlayer('left');
+        else if (e.key === 'ArrowRight' || e.key === 'd') movePlayer('right');
+        else if (e.key === 'ArrowUp' || e.key === 'w') movePlayer('jump');
+        else if (e.key === 'ArrowDown' || e.key === 's') movePlayer('slide');
     });
 
-    window.addEventListener('keyup', (e) => {
-        if (isMultiplayer && e.key === 'Shift') {
-            isP2Shift = false;
-            stopP2RapidFire();
-        }
-    });
+    function startGame() {
+        initAudio();
+        document.getElementById('main-menu').classList.add('hidden');
+        document.getElementById('game-over-screen').classList.add('hidden');
+        document.getElementById('pause-screen').classList.add('hidden');
+        document.getElementById('pause-btn').classList.remove('hidden');
+        document.getElementById('hud').classList.remove('hidden');
+        document.getElementById('touch-controls').classList.remove('hidden');
 
-    function initEngine() {
-        if (engine) return;
-        engine = Engine.create({ gravity: { y: 1.1 } });
-        render = Render.create({
-            element: document.getElementById('canvas-container'),
-            engine: engine,
-            options: { width: width, height: height, wireframes: false, background: '#141414' }
-        });
-        Render.run(render);
-        runner = Runner.create();
-        Runner.run(runner, engine);
+        score = 0;
+        coins = 0;
+        gameSpeed = 9;
+        distanceTraveled = 0;
+        obstacles = [];
+        collectibleCoins = [];
+        spawnTimer = 0;
+        roadCurve = 0;
+        targetCurve = 0;
+        curveTimer = 0;
+        player.lane = 0;
+        player.isJumping = false;
+        player.isSliding = false;
 
-        const wallOptions = { isStatic: true, render: { fillStyle: '#222' }, restitution: 0.5, friction: 0.01 };
-        bottomWall = Bodies.rectangle(width / 2, height + 20, width * 2, 60, wallOptions);
-        topWall = Bodies.rectangle(width / 2, -20, width * 2, 60, wallOptions);
-        leftWall = Bodies.rectangle(-20, height / 2, 60, height * 2, wallOptions);
-        rightWall = Bodies.rectangle(width + 20, height / 2, 60, height * 2, wallOptions);
+        document.getElementById('coin-hud').textContent = coins;
+        document.getElementById('score-hud').textContent = score;
+        document.getElementById('high-score-hud').textContent = highScore;
 
-        Composite.add(engine.world, [bottomWall, topWall, leftWall, rightWall]);
-
-        Events.on(engine, 'beforeUpdate', () => {
-            if (!isGameRunning || isPaused) return;
-
-            engine.timing.timeScale = timeScale;
-            if (isP1RightClick && !isP1Cooldown) {
-                p1RapidTime -= 16.67 * timeScale;
-                updateRapidBar();
-                if (p1RapidTime <= 0) { p1RapidTime = 0; startP1Cooldown(); }
-            }
-
-            bullets = bullets.filter(b => {
-                Body.setVelocity(b.body, { x: b.velocity.x * timeScale, y: b.velocity.y * timeScale });
-                const pos = b.body.position;
-                if (pos.x < 0 || pos.x > width || pos.y < 0 || pos.y > height) {
-                    Composite.remove(engine.world, b.body);
-                    return false;
-                }
-
-                if (b.type === 'player') {
-                    if (Vector.magnitude(Vector.sub(pos, botWeapon.position)) < 28) {
-                        playSound('hit');
-                        p1Score++;
-                        document.getElementById('p-score').textContent = p1Score;
-                        Composite.remove(engine.world, b.body);
-                        if (p1Score >= targetScore) endGame("OYUNCU 1 KAZANDI!");
-                        else nextRound();
-                        return false;
-                    }
-                } else if (b.type === 'bot') {
-                    if (Vector.magnitude(Vector.sub(pos, playerWeapon.position)) < 28) {
-                        playSound('hit');
-                        p2Score++;
-                        document.getElementById('b-score').textContent = p2Score;
-                        Composite.remove(engine.world, b.body);
-                        if (p2Score >= targetScore) endGame("OYUNCU 2 KAZANDI!");
-                        else nextRound();
-                        return false;
-                    }
-                }
-                return true;
-            });
-        });
-    }
-
-    function togglePurDikkat() {
-        if (!isGameRunning || isPaused || isMultiplayer) return;
-        isPurDikkatActive = !isPurDikkatActive;
-        const pdBtn = document.getElementById('pd-btn');
-        if (isPurDikkatActive) {
-            timeScale = 0.33;
-            pdBtn.classList.add('active');
-            pdBtn.textContent = "PÜR DİKKAT: AKTİF";
-            startBotAI();
-        } else {
-            timeScale = 1.0;
-            pdBtn.classList.remove('active');
-            pdBtn.textContent = "PÜR DİKKAT [P]";
-            startBotAI();
-        }
+        gameState = 'PLAYING';
+        startBackgroundMusic();
     }
 
     function togglePause() {
-        if (!isGameRunning) return;
-        isPaused = !isPaused;
-        const pauseScreen = document.getElementById('pause-screen');
-        if (isPaused) pauseScreen.classList.remove('hidden');
-        else pauseScreen.classList.add('hidden');
+        if (gameState === 'PLAYING') {
+            gameState = 'PAUSED';
+            document.getElementById('pause-screen').classList.remove('hidden');
+        } else if (gameState === 'PAUSED') {
+            gameState = 'PLAYING';
+            document.getElementById('pause-screen').classList.add('hidden');
+        }
     }
 
-    function createPistol(x, y, color, isOpponent = false) {
-        const barrelOffsetX = isOpponent ? -10 : 10;
-        const barrel = Bodies.rectangle(x + barrelOffsetX, y, 35, 12, { render: { fillStyle: color } });
-        const grip = Bodies.rectangle(x - 5, y + 12, 12, 22, { render: { fillStyle: color } });
-        const pistol = Body.create({ parts: [barrel, grip], restitution: 0.5, friction: 0.02, frictionAir: 0.01 });
-        barrel.label = "namlu";
-        Body.setPosition(pistol, { x: x, y: y });
-        Body.setAngularVelocity(pistol, (Math.random() - 0.5) * 0.2);
-        return pistol;
-    }
-
-    function startBotGameMode() {
-        isMultiplayer = false;
-        document.getElementById('p1-label').textContent = "OYUNCU";
-        document.getElementById('p2-label').textContent = "BOT";
-        document.getElementById('pd-btn').classList.remove('hidden');
-        startGameCommon();
-        startBotAI();
-    }
-
-    function showRoomMenu() {
-        document.getElementById('main-menu').classList.add('hidden');
-        document.getElementById('room-menu').classList.remove('hidden');
-        initRooms();
-    }
-
-    function showMainMenu() {
-        leaveRoom();
-        document.getElementById('main-menu').classList.remove('hidden');
-        document.getElementById('room-menu').classList.add('hidden');
-        document.getElementById('game-over-menu').classList.add('hidden');
+    function returnToMenu() {
+        gameState = 'MENU';
+        stopBackgroundMusic();
+        document.getElementById('pause-screen').classList.add('hidden');
+        document.getElementById('game-over-screen').classList.add('hidden');
         document.getElementById('hud').classList.add('hidden');
-        document.getElementById('pd-btn').classList.add('hidden');
         document.getElementById('pause-btn').classList.add('hidden');
-        document.getElementById('waiting-screen').classList.add('hidden');
-        isGameRunning = false;
+        document.getElementById('touch-controls').classList.add('hidden');
+        document.getElementById('main-menu').classList.remove('hidden');
     }
 
-    function joinRoom(roomId) {
-        currentRoomId = roomId;
-        isMultiplayer = true;
-        document.getElementById('room-menu').classList.add('hidden');
-        document.getElementById('waiting-screen').classList.remove('hidden');
+    function gameOver() {
+        gameState = 'GAMEOVER';
+        stopBackgroundMusic();
+        playSound('crash');
+        document.getElementById('hud').classList.add('hidden');
+        document.getElementById('pause-btn').classList.add('hidden');
+        document.getElementById('touch-controls').classList.add('hidden');
+        document.getElementById('game-over-screen').classList.remove('hidden');
 
-        // Oda doluluğunu kaydet
-        let rooms = getRoomsData();
-        if (!rooms[roomId].p1) {
-            rooms[roomId].p1 = true;
-        } else if (!rooms[roomId].p2) {
-            rooms[roomId].p2 = true;
+        if (score > highScore) {
+            highScore = score;
+            localStorage.setItem('temple_ult_high', highScore);
+            document.getElementById('high-score-hud').textContent = highScore;
         }
-        saveRoomsData(rooms);
 
-        // İkinci oyuncu gelene kadar periyodik kontrol (Bekleme Modu)
-        clearInterval(checkRoomInterval);
-        checkRoomInterval = setInterval(() => {
-            let currentRooms = getRoomsData();
-            let r = currentRooms[roomId];
-            if (r.p1 && r.p2) {
-                clearInterval(checkRoomInterval);
-                document.getElementById('waiting-screen').classList.add('hidden');
-                document.getElementById('p1-label').textContent = "OYUNCU 1";
-                document.getElementById('p2-label').textContent = "OYUNCU 2";
-                document.getElementById('pd-btn').classList.add('hidden');
-                startGameCommon();
+        document.getElementById('final-stats-text').innerHTML = 
+            `Toplanan Altın: <b>${coins}</b><br>Kazanılan Skor: <b>${score}</b><br>En Yüksek Skor: <b>${highScore}</b>`;
+    }
+
+    function spawnEntities() {
+        spawnTimer++;
+        if (spawnTimer > Math.max(28, 80 - Math.floor(score / 350))) {
+            spawnTimer = 0;
+            let lane = Math.floor(Math.random() * 3) - 1;
+            let typeRand = Math.random();
+
+            if (typeRand < 0.35) {
+                // Yerde engel
+                obstacles.push({ lane: lane, z: 1000, type: 'barrier', width: 95, height: 85 });
+            } else if (typeRand < 0.65) {
+                // Altı boş, üstü dolu kemer (Eğilerek geçilir)
+                obstacles.push({ lane: lane, z: 1000, type: 'arch', width: 100, height: 110 });
+            } else {
+                // Altınlar
+                for (let i = 0; i < 3; i++) {
+                    collectibleCoins.push({ lane: lane, z: 1000 + (i * 45) });
+                }
             }
-        }, 500);
-    }
-
-    function leaveRoom() {
-        clearInterval(checkRoomInterval);
-        if (currentRoomId) {
-            let rooms = getRoomsData();
-            rooms[currentRoomId] = { p1: false, p2: false };
-            saveRoomsData(rooms);
-            currentRoomId = null;
         }
     }
 
-    function startGameCommon() {
-        document.getElementById('main-menu').classList.add('hidden');
-        document.getElementById('room-menu').classList.add('hidden');
-        document.getElementById('waiting-screen').classList.add('hidden');
-        document.getElementById('game-over-menu').classList.add('hidden');
-        document.getElementById('hud').classList.remove('hidden');
-        document.getElementById('pause-btn').classList.remove('hidden');
+    function update() {
+        if (gameState !== 'PLAYING') return;
 
-        p1Score = 0;
-        p2Score = 0;
-        document.getElementById('p-score').textContent = "0";
-        document.getElementById('b-score').textContent = "0";
+        distanceTraveled += gameSpeed;
+        score = Math.floor(distanceTraveled / 10) + (coins * 15);
+        document.getElementById('score-hud').textContent = score;
+        document.getElementById('coin-hud').textContent = coins;
 
-        isPurDikkatActive = false;
-        isPaused = false;
-        timeScale = 1.0;
-        resetRapidFireState();
-        initEngine();
-        isGameRunning = true;
-        resetRoundData();
-    }
+        gameSpeed = 9.5 + Math.floor(score / 450);
+        animTimer += gameSpeed * 0.15;
 
-    function nextRound() {
-        if (!isGameRunning) return;
-        stopP1RapidFire();
-        stopP2RapidFire();
-        isP1RightClick = false;
-        isP2Shift = false;
-        resetRoundData();
-    }
+        // Viraj ve Yol Dönüş Mekaniği
+        curveTimer++;
+        if (curveTimer > 180) {
+            curveTimer = 0;
+            targetCurve = (Math.random() - 0.5) * 1.8; // Sağa veya sola dönüş
+            if (Math.abs(targetCurve) > 0.4) playSound('turn');
+        }
+        roadCurve += (targetCurve - roadCurve) * 0.03;
 
-    function resetRoundData() {
-        if (playerWeapon) Composite.remove(engine.world, playerWeapon);
-        if (botWeapon) Composite.remove(engine.world, botWeapon);
-        bullets.forEach(b => Composite.remove(engine.world, b.body));
-        bullets = [];
+        let targetX = player.lane * 130;
+        player.currentXOffset += (targetX - player.currentXOffset) * 0.25;
 
-        playerWeapon = createPistol(width * 0.25, 100, '#4caf50', false);
-        botWeapon = createPistol(width * 0.75, 100, '#f44336', true);
-        Composite.add(engine.world, [playerWeapon, botWeapon]);
-    }
-
-    function startBotAI() {
-        clearInterval(botInterval);
-        if (isMultiplayer) return;
-        botInterval = setInterval(() => {
-            if (!isGameRunning || isPaused || !botWeapon) return;
-            fire(botWeapon, 'bot');
-        }, 850);
-    }
-
-    function fire(fromWeapon, type) {
-        playSound('fire');
-        const barrelPart = fromWeapon.parts.find(p => p.label === "namlu") || fromWeapon.parts[1];
-        let angle = fromWeapon.angle;
-        const barrelAngle = barrelPart.angle;
-
-        let fireX = barrelPart.position.x + Math.cos(barrelAngle) * 17.5;
-        let fireY = barrelPart.position.y + Math.sin(barrelAngle) * 17.5;
-
-        if (type === 'bot') {
-            angle += Math.PI;
-            fireX = barrelPart.position.x - Math.cos(barrelAngle) * 17.5;
-            fireY = barrelPart.position.y - Math.sin(barrelAngle) * 17.5;
+        if (player.isJumping) {
+            player.y += player.jumpVelocity;
+            player.jumpVelocity += 0.85;
+            if (player.y >= 0) { player.y = 0; player.isJumping = false; }
         }
 
-        const bullet = Bodies.circle(fireX, fireY, 4, { isSensor: true, render: { fillStyle: '#ffeb3b' } });
-        const speed = 24;
-        const velocity = { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed };
-        const recoilForce = 0.025;
+        if (player.isSliding) {
+            player.slideTimer--;
+            if (player.slideTimer <= 0) player.isSliding = false;
+        }
 
-        Body.applyForce(fromWeapon, fromWeapon.position, {
-            x: -Math.cos(angle) * recoilForce,
-            y: -Math.sin(angle) * recoilForce
+        spawnEntities();
+
+        for (let i = obstacles.length - 1; i >= 0; i--) {
+            let obs = obstacles[i];
+            obs.z -= gameSpeed;
+
+            if (obs.z > 20 && obs.z < 90 && obs.lane === player.lane) {
+                if (obs.type === 'barrier') {
+                    gameOver();
+                } else if (obs.type === 'arch') {
+                    // Üstü dolu, altı boş: Sadece eğilerek geçilebilir!
+                    if (!player.isSliding) {
+                        gameOver();
+                    }
+                }
+            }
+            if (obs.z < 0) obstacles.splice(i, 1);
+        }
+
+        for (let i = collectibleCoins.length - 1; i >= 0; i--) {
+            let c = collectibleCoins[i];
+            c.z -= gameSpeed;
+
+            if (c.z > 20 && c.z < 90 && c.lane === player.lane) {
+                coins++;
+                playSound('coin');
+                collectibleCoins.splice(i, 1);
+                continue;
+            }
+            if (c.z < 0) collectibleCoins.splice(i, 1);
+        }
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+        // Arka Plan / Gökyüzü
+        let bgGrad = ctx.createLinearGradient(0, 0, 0, canvasHeight);
+        bgGrad.addColorStop(0, '#07070d');
+        bgGrad.addColorStop(0.4, '#191124');
+        bgGrad.addColorStop(1, '#050508');
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+        const centerX = canvasWidth / 2 + (roadCurve * 150);
+        const horizonY = canvasHeight * 0.36;
+        const roadBottomY = canvasHeight;
+
+        // Antik Duvarlar (Viraj Efektli)
+        ctx.fillStyle = '#17110d';
+        ctx.beginPath();
+        ctx.moveTo(centerX - 280, horizonY);
+        ctx.lineTo(-120 + roadCurve * 250, roadBottomY);
+        ctx.lineTo(0, roadBottomY);
+        ctx.lineTo(centerX - 140, horizonY);
+        ctx.fill();
+
+        ctx.fillStyle = '#1f1610';
+        ctx.beginPath();
+        ctx.moveTo(centerX + 280, horizonY);
+        ctx.lineTo(canvasWidth + 120 + roadCurve * 250, roadBottomY);
+        ctx.lineTo(canvasWidth, roadBottomY);
+        ctx.lineTo(centerX + 140, horizonY);
+        ctx.fill();
+
+        // Taş Yol
+        ctx.fillStyle = '#261d17';
+        ctx.beginPath();
+        ctx.moveTo(centerX - 240, horizonY);
+        ctx.lineTo(centerX + 240, horizonY);
+        ctx.lineTo(centerX + 420 + roadCurve * 300, roadBottomY);
+        ctx.lineTo(centerX - 420 + roadCurve * 300, roadBottomY);
+        ctx.fill();
+
+        // Şerit Çizgileri
+        ctx.strokeStyle = '#d35400';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([25, 30]);
+        ctx.lineDashOffset = -distanceTraveled * 0.9;
+
+        for (let l = -1; l <= 1; l++) {
+            if (l === 0) continue;
+            ctx.beginPath();
+            ctx.moveTo(centerX + (l * 80), horizonY);
+            ctx.lineTo(centerX + (l * 210) + roadCurve * 150, roadBottomY);
+            ctx.stroke();
+        }
+        ctx.setLineDash([]);
+
+        // Altınları Çiz
+        collectibleCoins.forEach(c => {
+            let scale = 1000 / (1000 + c.z);
+            let curveFactor = roadCurve * (1 - c.z / 1000) * 150;
+            let x = centerX + c.lane * 140 * scale + player.currentXOffset * scale * 0.15 + curveFactor;
+            let y = horizonY + (roadBottomY - horizonY) * (1 - c.z / 1000);
+            let radius = 13 * scale;
+
+            if (radius > 0) {
+                ctx.fillStyle = '#f1c40f';
+                ctx.beginPath();
+                ctx.arc(x, y - 25, radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#b7950b';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
         });
 
-        Composite.add(engine.world, bullet);
-        bullets.push({ body: bullet, velocity: velocity, type: type });
-    }
+        // Engelleri Çiz (Yere basan veya kemer yapılar)
+        obstacles.forEach(obs => {
+            let scale = 1000 / (1000 + obs.z);
+            let curveFactor = roadCurve * (1 - obs.z / 1000) * 150;
+            let x = centerX + obs.lane * 140 * scale + player.currentXOffset * scale * 0.15 + curveFactor;
+            let y = horizonY + (roadBottomY - horizonY) * (1 - obs.z / 1000);
+            let w = obs.width * scale;
+            let h = obs.height * scale;
 
-    window.addEventListener('mousedown', (e) => {
-        if (!isGameRunning || isPaused || !playerWeapon) return;
-        if (e.button === 0 && !isP1RightClick) {
-            fire(playerWeapon, 'player');
-        } else if (e.button === 2 && !isP1Cooldown) {
-            isP1RightClick = true;
-            startP1RapidFire();
-        }
-    });
-
-    window.addEventListener('mouseup', (e) => {
-        if (e.button === 2) {
-            isP1RightClick = false;
-            stopP1RapidFire();
-        }
-    });
-
-    function startP1RapidFire() {
-        clearInterval(p1RapidInterval);
-        document.getElementById('ability-hud').textContent = "TARAMALI: ATEŞLENİYOR 🔥";
-        document.getElementById('ability-hud').style.color = "#f44336";
-        document.getElementById('bar-fill').style.background = "#f44336";
-
-        p1RapidInterval = setInterval(() => {
-            if (isGameRunning && !isPaused && playerWeapon && !isP1Cooldown) {
-                fire(playerWeapon, 'player');
+            if (w > 0) {
+                if (obs.type === 'barrier') {
+                    ctx.fillStyle = '#962d22';
+                    ctx.fillRect(x - w / 2, y - h, w, h);
+                    ctx.strokeStyle = '#f5b041';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(x - w / 2, y - h, w, h);
+                } else if (obs.type === 'arch') {
+                    // Üstü dolu, altı boş kemer tapınak yapısı
+                    ctx.fillStyle = '#78281f';
+                    // Üst kiriş
+                    ctx.fillRect(x - w / 2 - 15, y - h, w + 30, 35);
+                    // Sağ ve sol sütunlar (altı boşluk bırakır)
+                    ctx.fillRect(x - w / 2 - 10, y - h + 35, 20, h - 35);
+                    ctx.fillRect(x + w / 2 - 10, y - h + 35, 20, h - 35);
+                    ctx.strokeStyle = '#e74c3c';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(x - w / 2 - 15, y - h, w + 30, h);
+                }
             }
-        }, 100);
-    }
+        });
 
-    function stopP1RapidFire() {
-        clearInterval(p1RapidInterval);
-        if (!isP1Cooldown) {
-            document.getElementById('ability-hud').textContent = "TARAMALI: HAZIR";
-            document.getElementById('ability-hud').style.color = "#ffeb3b";
-            document.getElementById('bar-fill').style.background = "#ffeb3b";
-        }
-    }
-
-    function startP1Cooldown() {
-        isP1RightClick = false;
-        isP1Cooldown = true;
-        stopP1RapidFire();
-
-        const infoHud = document.getElementById('ability-hud');
-        const barFill = document.getElementById('bar-fill');
-        infoHud.style.color = "#aaa";
-        barFill.style.background = "#555";
-
-        let cooldownTime = 10;
-        infoHud.textContent = `DOLUYOR: ${cooldownTime}sn`;
-
-        const cdInterval = setInterval(() => {
-            if (isPaused) return;
-            cooldownTime--;
-            infoHud.textContent = `DOLUYOR: ${cooldownTime}sn`;
-            let percent = ((10 - cooldownTime) / 10) * 100;
-            barFill.style.width = `${percent}%`;
-
-            if (cooldownTime <= 0) {
-                clearInterval(cdInterval);
-                isP1Cooldown = false;
-                p1RapidTime = maxRapidTime;
-                updateRapidBar();
-                infoHud.textContent = "TARAMALI: HAZIR";
-                infoHud.style.color = "#ffeb3b";
-                barFill.style.background = "#ffeb3b";
-            }
-        }, 1000);
-    }
-
-    function startP2RapidFire() {
-        clearInterval(p2RapidInterval);
-        p2RapidInterval = setInterval(() => {
-            if (isGameRunning && !isPaused && botWeapon && isP2Shift) {
-                fire(botWeapon, 'bot');
-            }
-        }, 100);
-    }
-
-    function stopP2RapidFire() {
-        clearInterval(p2RapidInterval);
-    }
-
-    function updateRapidBar() {
-        const percent = (p1RapidTime / maxRapidTime) * 100;
-        document.getElementById('bar-fill').style.width = `${Math.max(0, percent)}%`;
-    }
-
-    function resetRapidFireState() {
-        clearInterval(p1RapidInterval);
-        clearInterval(p2RapidInterval);
-        isP1RightClick = false;
-        isP2Shift = false;
-        isP1Cooldown = false;
-        p1RapidTime = maxRapidTime;
-        updateRapidBar();
-        const infoHud = document.getElementById('ability-hud');
-        if (infoHud) {
-            infoHud.textContent = "TARAMALI: HAZIR";
-            infoHud.style.color = "#ffeb3b";
-            document.getElementById('bar-fill').style.background = "#ffeb3b";
-        }
-    }
-
-    function endGame(message) {
-        leaveRoom();
-        isGameRunning = false;
-        isP1RightClick = false;
-        isP2Shift = false;
-        clearInterval(botInterval);
-        clearInterval(p1RapidInterval);
-        clearInterval(p2RapidInterval);
-        document.getElementById('hud').classList.add('hidden');
-        document.getElementById('pd-btn').classList.add('hidden');
-        document.getElementById('pause-btn').classList.add('hidden');
-        document.getElementById('pause-screen').classList.add('hidden');
-        document.getElementById('game-over-menu').classList.remove('hidden');
+        // Karakter Çizimi
+        let pScreenX = canvasWidth / 2 + player.currentXOffset + (roadCurve * 80);
+        let pScreenY = roadBottomY - 150 + player.y;
         
-        document.getElementById('game-over-title').textContent = message;
-        document.getElementById('game-result-text').innerHTML = `Final Skorlar:<br>P1: <b>${p1Score}</b> | P2: <b>${p2Score}</b>`;
+        let legSwing = Math.sin(animTimer) * 20;
+        let armSwing = Math.cos(animTimer) * 20;
+        if (player.isJumping) { legSwing = 10; armSwing = -15; }
+        if (player.isSliding) { legSwing = 0; armSwing = 0; }
+
+        let bodyHeight = player.isSliding ? 40 : 85;
+        let bodyWidth = player.isSliding ? 70 : 45;
+        let bodyY = player.isSliding ? pScreenY - 45 : pScreenY - bodyHeight;
+
+        // Baş
+        ctx.fillStyle = '#f39c12';
+        ctx.beginPath();
+        ctx.arc(pScreenX, bodyY - 18, 14, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Gövde
+        ctx.fillStyle = '#2980b9';
+        ctx.fillRect(pScreenX - bodyWidth / 2, bodyY, bodyWidth, bodyHeight);
+
+        // Kollar
+        ctx.strokeStyle = '#2980b9';
+        ctx.lineWidth = 8;
+        ctx.lineCap = 'round';
+        
+        ctx.beginPath();
+        ctx.moveTo(pScreenX - bodyWidth / 2, bodyY + 15);
+        ctx.lineTo(pScreenX - bodyWidth / 2 - 15, bodyY + 35 + armSwing);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(pScreenX + bodyWidth / 2, bodyY + 15);
+        ctx.lineTo(pScreenX + bodyWidth / 2 + 15, bodyY + 35 - armSwing);
+        ctx.stroke();
+
+        // Bacaklar
+        ctx.strokeStyle = '#2c3e50';
+        ctx.lineWidth = 10;
+
+        ctx.beginPath();
+        ctx.moveTo(pScreenX - 10, bodyY + bodyHeight);
+        ctx.lineTo(pScreenX - 15 + legSwing, bodyY + bodyHeight + 35);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(pScreenX + 10, bodyY + bodyHeight);
+        ctx.lineTo(pScreenX + 15 - legSwing, bodyY + bodyHeight + 35);
+        ctx.stroke();
     }
 
-    function restartGame() {
-        if (isMultiplayer) {
-            showRoomMenu();
-        } else {
-            startBotGameMode();
-        }
+    function gameLoop() {
+        update();
+        draw();
+        requestAnimationFrame(gameLoop);
     }
+
+    requestAnimationFrame(gameLoop);
 </script>
 </body>
 </html>

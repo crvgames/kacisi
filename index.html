@@ -1,12 +1,10 @@
- 
  <!DOCTYPE html>
 <html lang="tr">
 <head>
- <meta name="google-site-verification" content="kLCS6z8Lb3jZLTBq6-TJDJSFEFtRTSW3B3IMBYlx5wo" />
- <link rel="icon" href="favicon0.png" type="image/png">
+<meta name="google-site-verification" content="kLCS6z8Lb3jZLTBq6-TJDJSFEFtRTSW3B3IMBYlx5wo" />
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tapınak Kaçışı</title>
+    <title>Karanlık Koridor Kaçışı 3D</title>
     <style>
         * { box-sizing: border-box; user-select: none; }
         html, body {
@@ -71,6 +69,7 @@
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 90;
         }
+        #main-menu { background: radial-gradient(ellipse at center, rgba(8,6,14,0.35) 0%, rgba(8,6,14,0.78) 100%); }
     </style>
 </head>
 <body>
@@ -97,7 +96,7 @@
 
     <!-- ANA MENÜ -->
     <div id="main-menu" class="screen">
-        <h1>TAPINAK KAÇIŞI</h1>
+        <h1>KARANLIK KORİDOR KAÇIŞI</h1>
         <p>
             Virajlı yollar, eğilip geçilen kemerler ve aksiyon dolu müzik eşliğinde kaçış!<br>
             <b>Kontroller:</b> [SOL/SAĞ] Şerit / Viraj Dönüşü | [YUKARI] Zıpla | [AŞAĞI] Eğil<br>
@@ -116,7 +115,7 @@
 
     <!-- OYUN BİTTİ EKRANI -->
     <div id="game-over-screen" class="screen hidden">
-        <h1 style="color: #e74c3c;">ÇARPTIN!</h1>
+        <h1 style="color: #e74c3c;">YAKALANDIN!</h1>
         <p id="final-stats-text" style="font-size: 18px; margin-bottom: 20px;"></p>
         <button class="btn" onclick="startGame()">TEKRAR DENE</button>
         <button class="btn btn-secondary" onclick="returnToMenu()">ANA MENÜ</button>
@@ -125,21 +124,11 @@
     <canvas id="gameCanvas"></canvas>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
     const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-
     let canvasWidth = window.innerWidth;
     let canvasHeight = window.innerHeight;
-    canvas.width = canvasWidth;
-    canvas.height = canvasHeight;
-
-    window.addEventListener('resize', () => {
-        canvasWidth = window.innerWidth;
-        canvasHeight = window.innerHeight;
-        canvas.width = canvasWidth;
-        canvas.height = canvasHeight;
-    });
 
     // Ses ve Arka Plan Müziği (Web Audio API)
     let audioCtx = null;
@@ -340,6 +329,7 @@
 
     function gameOver() {
         gameState = 'GAMEOVER';
+        shakeT = 28;
         stopBackgroundMusic();
         playSound('crash');
         document.getElementById('hud').classList.add('hidden');
@@ -439,6 +429,7 @@
             if (c.z > 20 && c.z < 90 && c.lane === player.lane) {
                 coins++;
                 playSound('coin');
+                spawnCoinFx(c);
                 collectibleCoins.splice(i, 1);
                 continue;
             }
@@ -446,163 +437,574 @@
         }
     }
 
-    function draw() {
-        ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+    // =====================================================================
+    //  3B GERÇEKÇİ SAHNE (Three.js)  –  oyun mantığı yukarıdaki gibi aynen çalışır
+    // =====================================================================
+    const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+    renderer.setSize(canvasWidth, canvasHeight);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
+    const maxAniso = renderer.capabilities.getMaxAnisotropy();
 
-        // Arka Plan / Gökyüzü
-        let bgGrad = ctx.createLinearGradient(0, 0, 0, canvasHeight);
-        bgGrad.addColorStop(0, '#07070d');
-        bgGrad.addColorStop(0.4, '#191124');
-        bgGrad.addColorStop(1, '#050508');
-        ctx.fillStyle = bgGrad;
-        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+    const scene = new THREE.Scene();
+    const FOG_COLOR = 0x1a1124;
+    scene.fog = new THREE.Fog(FOG_COLOR, 450, 2000);
+    const camera = new THREE.PerspectiveCamera(62, canvasWidth / canvasHeight, 5, 6000);
 
-        const centerX = canvasWidth / 2 + (roadCurve * 150);
-        const horizonY = canvasHeight * 0.36;
-        const roadBottomY = canvasHeight;
+    window.addEventListener('resize', () => {
+        canvasWidth = window.innerWidth;
+        canvasHeight = window.innerHeight;
+        renderer.setSize(canvasWidth, canvasHeight);
+        camera.aspect = canvasWidth / canvasHeight;
+        camera.updateProjectionMatrix();
+    });
 
-        // Antik Duvarlar (Viraj Efektli)
-        ctx.fillStyle = '#17110d';
-        ctx.beginPath();
-        ctx.moveTo(centerX - 280, horizonY);
-        ctx.lineTo(-120 + roadCurve * 250, roadBottomY);
-        ctx.lineTo(0, roadBottomY);
-        ctx.lineTo(centerX - 140, horizonY);
-        ctx.fill();
+    // ---- Yolun virajı: her malzemeye uygulanan eğrilik (Subway Surfers tarzı dünya bükme) ----
+    const bendU = { value: 0 };
+    function bendify(mat) {
+        mat.onBeforeCompile = (shader) => {
+            shader.uniforms.uCurve = bendU;
+            shader.vertexShader = 'uniform float uCurve;\n' + shader.vertexShader.replace('#include <project_vertex>',
+                'vec4 mvPosition = vec4( transformed, 1.0 );\n' +
+                '#ifdef USE_INSTANCING\nmvPosition = instanceMatrix * mvPosition;\n#endif\n' +
+                'mvPosition = modelViewMatrix * mvPosition;\n' +
+                'float bd = max(0.0, -mvPosition.z - 120.0);\n' +
+                'mvPosition.x += uCurve * bd * bd;\n' +
+                'mvPosition.y -= 0.00006 * bd * bd;\n' +
+                'gl_Position = projectionMatrix * mvPosition;');
+        };
+        return mat;
+    }
+    function stdMat(color, rough, metal, env, extra) {
+        const o = { color: color, roughness: rough === undefined ? 0.9 : rough, metalness: metal || 0, envMapIntensity: env === undefined ? 0.3 : env };
+        if (extra) Object.assign(o, extra);
+        return bendify(new THREE.MeshStandardMaterial(o));
+    }
+    function rnd(a, b) { return a + Math.random() * (b - a); }
 
-        ctx.fillStyle = '#1f1610';
-        ctx.beginPath();
-        ctx.moveTo(centerX + 280, horizonY);
-        ctx.lineTo(canvasWidth + 120 + roadCurve * 250, roadBottomY);
-        ctx.lineTo(canvasWidth, roadBottomY);
-        ctx.lineTo(centerX + 140, horizonY);
-        ctx.fill();
+    // ---- Gökyüzü: gece, yıldızlar, ay ----
+    const skyMat = new THREE.ShaderMaterial({
+        side: THREE.BackSide, depthWrite: false, depthTest: false, fog: false,
+        uniforms: { top: { value: new THREE.Color(0x05050c) }, hor: { value: new THREE.Color(0x2a1a3a) }, moonDir: { value: new THREE.Vector3(-0.3, 0.25, -0.92) } },
+        vertexShader: 'varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+        fragmentShader: 'uniform vec3 top; uniform vec3 hor; uniform vec3 moonDir; varying vec3 vDir;' +
+            'float hash(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }' +
+            'void main(){ vec3 d = normalize(vDir); float h = clamp(d.y * 1.4 + 0.1, 0.0, 1.0); vec3 col = mix(hor, top, pow(h, 0.6));' +
+            'float st = step(0.9972, hash(floor(d * 260.0))); col += vec3(st) * smoothstep(0.05, 0.4, d.y) * 0.9;' +
+            'float m = dot(d, normalize(moonDir)); col += vec3(0.88, 0.92, 1.0) * smoothstep(0.9988, 0.9994, m) * 1.6 + vec3(0.25, 0.3, 0.5) * pow(max(m, 0.0), 80.0) * 0.55;' +
+            'gl_FragColor = vec4(col, 1.0); }'
+    });
+    const sky = new THREE.Mesh(new THREE.SphereGeometry(4000, 24, 16), skyMat);
+    sky.renderOrder = -100;
+    sky.frustumCulled = false;
+    scene.add(sky);
+    try {
+        const pm = new THREE.PMREMGenerator(renderer);
+        const envScene = new THREE.Scene();
+        envScene.add(new THREE.Mesh(new THREE.SphereGeometry(50, 32, 16), skyMat));
+        scene.environment = pm.fromScene(envScene, 0.03).texture;
+        pm.dispose();
+    } catch (e) { console.warn('Ortam haritası oluşturulamadı', e); }
 
-        // Taş Yol
-        ctx.fillStyle = '#261d17';
-        ctx.beginPath();
-        ctx.moveTo(centerX - 240, horizonY);
-        ctx.lineTo(centerX + 240, horizonY);
-        ctx.lineTo(centerX + 420 + roadCurve * 300, roadBottomY);
-        ctx.lineTo(centerX - 420 + roadCurve * 300, roadBottomY);
-        ctx.fill();
+    // ---- Işıklar ----
+    scene.add(new THREE.HemisphereLight(0x6a5a8a, 0x1a1008, 0.55));
+    const moonLight = new THREE.DirectionalLight(0x8fa8ff, 0.55);
+    moonLight.position.set(-300, 500, 200);
+    scene.add(moonLight);
+    const torchLight = new THREE.PointLight(0xffa04a, 1.8, 700, 1.6);
+    scene.add(torchLight);
+    const farLight = new THREE.PointLight(0xff8a3a, 1.4, 1100, 1.4);
+    farLight.position.set(0, 220, -500);
+    scene.add(farLight);
 
-        // Şerit Çizgileri
-        ctx.strokeStyle = '#d35400';
-        ctx.lineWidth = 3;
-        ctx.setLineDash([25, 30]);
-        ctx.lineDashOffset = -distanceTraveled * 0.9;
-
-        for (let l = -1; l <= 1; l++) {
-            if (l === 0) continue;
-            ctx.beginPath();
-            ctx.moveTo(centerX + (l * 80), horizonY);
-            ctx.lineTo(centerX + (l * 210) + roadCurve * 150, roadBottomY);
-            ctx.stroke();
+    // ---- Procedürel dokular ----
+    function mkCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+    function finishTex(c, rx, ry) {
+        const t = new THREE.CanvasTexture(c);
+        t.wrapS = t.wrapT = THREE.RepeatWrapping;
+        t.repeat.set(rx || 1, ry || 1);
+        t.anisotropy = maxAniso;
+        return t;
+    }
+    function drawFloorCanvas() {
+        const c = mkCanvas(512, 512), g = c.getContext('2d');
+        g.fillStyle = '#2c241e'; g.fillRect(0, 0, 512, 512);
+        for (let sy = 0; sy < 2; sy++) for (let sx = 0; sx < 2; sx++) {
+            g.fillStyle = 'hsl(' + rnd(24, 34).toFixed(0) + ',' + rnd(12, 22).toFixed(0) + '%,' + rnd(20, 30).toFixed(0) + '%)';
+            g.fillRect(sx * 256 + 5, sy * 256 + 5, 246, 246);
         }
-        ctx.setLineDash([]);
+        for (let i = 0; i < 9000; i++) { const v = (rnd(0, 255)) | 0; g.fillStyle = 'rgba(' + v + ',' + v + ',' + v + ',' + rnd(0.02, 0.09).toFixed(3) + ')'; g.fillRect(rnd(0, 512), rnd(0, 512), rnd(1, 3), rnd(1, 3)); }
+        for (let i = 0; i < 8; i++) { g.fillStyle = 'rgba(60,90,40,' + rnd(0.10, 0.22).toFixed(2) + ')'; g.beginPath(); g.ellipse(rnd(0, 512), rnd(0, 512), rnd(10, 40), rnd(6, 24), rnd(0, 3), 0, Math.PI * 2); g.fill(); }
+        g.strokeStyle = 'rgba(8,6,4,0.65)'; g.lineWidth = 1.3;
+        for (let i = 0; i < 10; i++) {
+            let x = rnd(10, 500), y = rnd(10, 500);
+            g.beginPath(); g.moveTo(x, y);
+            for (let k = 0; k < 8; k++) { x += rnd(-22, 22); y += rnd(-22, 22); g.lineTo(x, y); }
+            g.stroke();
+        }
+        g.fillStyle = 'rgba(0,0,0,0.85)';
+        g.fillRect(0, 0, 512, 6); g.fillRect(0, 250, 512, 12); g.fillRect(0, 506, 512, 6);
+        g.fillRect(0, 0, 6, 512); g.fillRect(250, 0, 12, 512); g.fillRect(506, 0, 6, 512);
+        return c;
+    }
+    function drawWallCanvas() {
+        const c = mkCanvas(512, 512), g = c.getContext('2d');
+        g.fillStyle = '#16110d'; g.fillRect(0, 0, 512, 512);
+        for (let r = 0; r < 8; r++) {
+            const off = (r % 2) * 64;
+            for (let b = -1; b < 5; b++) {
+                const x = b * 128 + off, y = r * 64;
+                g.fillStyle = 'hsl(' + rnd(24, 36).toFixed(0) + ',' + rnd(14, 26).toFixed(0) + '%,' + rnd(22, 36).toFixed(0) + '%)';
+                g.fillRect(x + 3, y + 3, 122, 58);
+                g.fillStyle = 'rgba(255,255,255,0.06)'; g.fillRect(x + 3, y + 3, 122, 4);
+                g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(x + 3, y + 56, 122, 5);
+            }
+        }
+        for (let i = 0; i < 7000; i++) { const v = (rnd(0, 255)) | 0; g.fillStyle = 'rgba(' + v + ',' + v + ',' + v + ',' + rnd(0.02, 0.08).toFixed(3) + ')'; g.fillRect(rnd(0, 512), rnd(0, 512), rnd(1, 3), rnd(1, 3)); }
+        for (let i = 0; i < 14; i++) { const x = rnd(0, 512); const gr = g.createLinearGradient(0, 0, 0, 512); gr.addColorStop(0, 'rgba(0,0,0,0.0)'); gr.addColorStop(1, 'rgba(0,0,0,0.30)'); g.fillStyle = gr; g.fillRect(x, 0, rnd(4, 14), 512); }
+        for (let i = 0; i < 6; i++) { g.fillStyle = 'rgba(60,90,40,' + rnd(0.10, 0.2).toFixed(2) + ')'; g.beginPath(); g.ellipse(rnd(0, 512), rnd(300, 512), rnd(20, 60), rnd(10, 30), 0, 0, Math.PI * 2); g.fill(); }
+        return c;
+    }
+    function drawPillarCanvas() {
+        const c = mkCanvas(256, 512), g = c.getContext('2d');
+        g.fillStyle = '#4a3f33'; g.fillRect(0, 0, 256, 512);
+        for (let x = 0; x < 256; x += 32) { g.fillStyle = 'rgba(0,0,0,0.38)'; g.fillRect(x, 0, 5, 512); g.fillStyle = 'rgba(255,255,255,0.08)'; g.fillRect(x + 8, 0, 3, 512); }
+        for (let i = 0; i < 6000; i++) { const v = (rnd(0, 255)) | 0; g.fillStyle = 'rgba(' + v + ',' + v + ',' + v + ',' + rnd(0.02, 0.08).toFixed(3) + ')'; g.fillRect(rnd(0, 256), rnd(0, 512), rnd(1, 3), rnd(1, 3)); }
+        [[40, 110], [400, 470]].forEach(b => {
+            g.fillStyle = 'rgba(0,0,0,0.45)'; g.fillRect(0, b[0], 256, b[1] - b[0]);
+            g.strokeStyle = 'rgba(212,164,55,0.55)'; g.lineWidth = 3;
+            for (let x = 14; x < 256; x += 36) { g.strokeRect(x, b[0] + 10, 22, b[1] - b[0] - 20); g.beginPath(); g.arc(x + 11, b[0] + 28, 5, 0, Math.PI * 2); g.stroke(); }
+        });
+        return c;
+    }
+    function drawGlyphCanvas() {
+        const c = mkCanvas(256, 256), g = c.getContext('2d');
+        g.fillStyle = '#7a3b2a'; g.fillRect(0, 0, 256, 256);
+        for (let i = 0; i < 5000; i++) { const v = (rnd(0, 255)) | 0; g.fillStyle = 'rgba(' + v + ',' + v + ',' + v + ',' + rnd(0.03, 0.10).toFixed(3) + ')'; g.fillRect(rnd(0, 256), rnd(0, 256), rnd(1, 3), rnd(1, 3)); }
+        g.strokeStyle = '#d4a437'; g.lineWidth = 6; g.strokeRect(10, 10, 236, 236);
+        g.lineWidth = 3; g.strokeRect(22, 22, 212, 212);
+        g.lineWidth = 5;
+        g.beginPath(); g.ellipse(128, 100, 52, 26, 0, 0, Math.PI * 2); g.stroke();
+        g.beginPath(); g.arc(128, 100, 12, 0, Math.PI * 2); g.fillStyle = '#d4a437'; g.fill();
+        g.beginPath(); g.moveTo(76, 100); g.lineTo(52, 124); g.stroke();
+        g.beginPath(); g.arc(128, 178, 18, 0, Math.PI * 2); g.stroke();
+        g.beginPath(); g.moveTo(128, 196); g.lineTo(128, 232); g.moveTo(110, 214); g.lineTo(146, 214); g.stroke();
+        for (let k = 0; k < 3; k++) { g.beginPath(); g.moveTo(40, 150 + k * 10); for (let x = 40; x < 90; x += 10) g.lineTo(x + 5, 150 + k * 10 + ((x / 10) % 2 ? -5 : 5)); g.stroke(); g.beginPath(); g.moveTo(166, 150 + k * 10); for (let x = 166; x < 216; x += 10) g.lineTo(x + 5, 150 + k * 10 + ((x / 10) % 2 ? -5 : 5)); g.stroke(); }
+        return c;
+    }
+    function drawLinesCanvas() {
+        const c = mkCanvas(512, 512), g = c.getContext('2d');
+        [180.4, 331.6].forEach(x => {
+            for (let y = 6; y < 512; y += 64) {
+                g.fillStyle = 'rgba(255,120,30,0.35)'; g.fillRect(x - 7, y - 3, 14, 38);
+                g.fillStyle = '#ff8a2a'; g.fillRect(x - 3.5, y, 7, 32);
+                g.fillStyle = '#ffd9a0'; g.fillRect(x - 1.5, y + 2, 3, 28);
+            }
+        });
+        return c;
+    }
+    function drawGlowCanvas(rgb) {
+        const c = mkCanvas(128, 128), g = c.getContext('2d');
+        const gr = g.createRadialGradient(64, 64, 2, 64, 64, 64);
+        gr.addColorStop(0, 'rgba(' + rgb + ',1)'); gr.addColorStop(0.3, 'rgba(' + rgb + ',0.45)'); gr.addColorStop(1, 'rgba(' + rgb + ',0)');
+        g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+        return c;
+    }
+    const floorCv = drawFloorCanvas(), wallCv = drawWallCanvas(), pillarCv = drawPillarCanvas();
+    const floorTex = finishTex(floorCv, 2, 2);
+    const ledgeTex = finishTex(wallCv, 1, 0.6);
+    const wallTex = finishTex(wallCv, 2, 1.5);
+    const stoneTex = finishTex(wallCv, 0.5, 0.5);
+    const pillarTex = finishTex(pillarCv, 1, 1);
+    const glyphTex = finishTex(drawGlyphCanvas(), 1, 1);
+    const linesTex = new THREE.CanvasTexture(drawLinesCanvas()); linesTex.anisotropy = maxAniso;
+    const glowTex = new THREE.CanvasTexture(drawGlowCanvas('255,190,90'));
+    const dustTex = new THREE.CanvasTexture(drawGlowCanvas('255,200,140'));
 
-        // Altınları Çiz
+    const floorMat = stdMat(0xffffff, 0.93, 0, 0.2, { map: floorTex, bumpMap: floorTex, bumpScale: 1.5 });
+    const ledgeMat = stdMat(0xd8d0c8, 0.95, 0, 0.2, { map: ledgeTex, bumpMap: ledgeTex, bumpScale: 1.5 });
+    const wallMat = stdMat(0xffffff, 0.95, 0, 0.2, { map: wallTex, bumpMap: wallTex, bumpScale: 2.0 });
+    const stoneMat = stdMat(0xcfc4b6, 0.95, 0, 0.2, { map: stoneTex, bumpMap: stoneTex, bumpScale: 1.5 });
+    const pillarMat = stdMat(0xffffff, 0.9, 0, 0.25, { map: pillarTex, bumpMap: pillarTex, bumpScale: 2.0 });
+    const goldMat = stdMat(0xd4a437, 0.3, 0.7, 1.6, { emissive: 0x3a2600 });
+    const ironMat = stdMat(0x1c1a19, 0.5, 0.6, 0.8);
+    const flameMat = bendify(new THREE.MeshBasicMaterial({ color: 0xffa233 }));
+    const lineMat = bendify(new THREE.MeshBasicMaterial({ map: linesTex, transparent: true, depthWrite: false }));
+    const glowMat = bendify(new THREE.PointsMaterial({ map: glowTex, color: 0xffa040, size: 80, sizeAttenuation: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
+    const statueMat = stdMat(0x857b6e, 0.95, 0, 0.25);
+
+    // ---- İnsan modeli yardımcıları (koşucu + heykeller) ----
+    function rzMerge(list) {
+        const parts = list.map(g => g.index ? g.toNonIndexed() : g);
+        let total = 0;
+        parts.forEach(g => { total += g.attributes.position.count; });
+        const pos = new Float32Array(total * 3), nor = new Float32Array(total * 3);
+        const hasCol = parts.every(g => g.attributes.color);
+        const col = hasCol ? new Float32Array(total * 3) : null;
+        let o = 0;
+        parts.forEach(g => {
+            pos.set(g.attributes.position.array, o * 3);
+            nor.set(g.attributes.normal.array, o * 3);
+            if (hasCol) col.set(g.attributes.color.array, o * 3);
+            o += g.attributes.position.count;
+        });
+        const out = new THREE.BufferGeometry();
+        out.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        out.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+        if (hasCol) out.setAttribute('color', new THREE.BufferAttribute(col, 3));
+        return out;
+    }
+    function rzPiece(geo, x, y, z, sx, sy, sz, rx, ry, rz2) {
+        const m = new THREE.Matrix4();
+        m.compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx || 0, ry || 0, rz2 || 0)), new THREE.Vector3(sx, sy, sz));
+        const g = geo.clone();
+        g.applyMatrix4(m);
+        return g;
+    }
+    function rzColor(g, hex) {
+        const c = new THREE.Color(hex), n = g.attributes.position.count, a = new Float32Array(n * 3);
+        for (let i = 0; i < n; i++) { a[i * 3] = c.r; a[i * 3 + 1] = c.g; a[i * 3 + 2] = c.b; }
+        g.setAttribute('color', new THREE.BufferAttribute(a, 3));
+        return g;
+    }
+    let rzHG = null;
+    function rzGetHumanGeos() {
+        if (rzHG) return rzHG;
+        const S = (r, w, h) => new THREE.SphereGeometry(r, w || 10, h || 8);
+        const C = (rt, rb, h, seg) => new THREE.CylinderGeometry(rt, rb, h, seg || 12);
+        const P = rzPiece;
+        const hg = {};
+        hg.skinBody = rzMerge([
+            P(C(1.8, 2.0, 5.5), 0, 48.4, 0, 1, 1, 1),
+            P(S(5.3, 14, 12), 0, 53.6, 0, 0.86, 1.06, 0.95),
+            P(S(3.6, 12, 10), 0, 50.8, 0.9, 0.95, 0.8, 0.9),
+            P(S(1.0, 8, 6), -5.0, 53.2, 0, 0.45, 1.0, 0.7),
+            P(S(1.0, 8, 6), 5.0, 53.2, 0, 0.45, 1.0, 0.7),
+            P(new THREE.ConeGeometry(0.95, 2.2, 8), 0, 52.4, 5.3, 1, 1, 1, Math.PI / 2, 0, 0)
+        ]);
+        hg.shirtBody = rzMerge([
+            P(C(6.0, 6.6, 9, 16), 0, 26.5, 0, 1.15, 1, 0.78),
+            P(C(7.7, 6.2, 16, 16), 0, 38, 0, 1.2, 1, 0.7),
+            P(S(3.7, 12, 10), -9.4, 44, 0, 1, 1, 1),
+            P(S(3.7, 12, 10), 9.4, 44, 0, 1, 1, 1),
+            P(C(2.4, 2.7, 1.6, 12), 0, 46.4, 0, 1.2, 1, 1)
+        ]);
+        hg.pantsBody = rzMerge([P(C(6.4, 6.9, 7, 16), 0, 23, 0, 1.15, 1, 0.78)]);
+        hg.hair = rzMerge([
+            P(new THREE.SphereGeometry(5.55, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.45), 0, 54.2, -0.4, 0.9, 1.0, 1.0),
+            P(S(5.0, 12, 10), 0, 52.6, -1.8, 0.88, 0.95, 0.7)
+        ]);
+        hg.features = rzMerge([
+            rzColor(P(S(0.85, 8, 6), -1.9, 53.8, 4.65, 1, 0.8, 0.5), 0xffffff),
+            rzColor(P(S(0.85, 8, 6), 1.9, 53.8, 4.65, 1, 0.8, 0.5), 0xffffff),
+            rzColor(P(S(0.45, 8, 6), -1.9, 53.8, 4.95, 1, 1, 0.5), 0x3b2a1a),
+            rzColor(P(S(0.45, 8, 6), 1.9, 53.8, 4.95, 1, 1, 0.5), 0x3b2a1a),
+            rzColor(P(new THREE.BoxGeometry(2.2, 0.4, 0.5), -1.9, 55.2, 4.85, 1, 1, 1), 0x2a1c12),
+            rzColor(P(new THREE.BoxGeometry(2.2, 0.4, 0.5), 1.9, 55.2, 4.85, 1, 1, 1), 0x2a1c12),
+            rzColor(P(new THREE.BoxGeometry(2.4, 0.35, 0.5), 0, 49.9, 3.95, 1, 1, 1), 0x8a3b3b)
+        ]);
+        hg.sleeve = rzMerge([P(C(2.7, 2.4, 7.5, 10), 0, -3.6, 0, 1, 1, 1)]);
+        hg.upperSkin = rzMerge([P(C(2.25, 2.05, 4.2, 10), 0, -9.2, 0, 1, 1, 1)]);
+        hg.foreArm = rzMerge([
+            P(S(2.1, 8, 6), 0, 0, 0, 1, 1, 1),
+            P(C(2.0, 1.5, 9, 10), 0, -4.5, 0, 1, 1, 1),
+            P(S(1.75, 8, 6), 0, -10.2, 0, 0.85, 1.2, 1.0),
+            P(S(0.7, 6, 5), 1.4, -9.2, 0.9, 1, 1, 1)
+        ]);
+        hg.thigh = rzMerge([P(C(3.4, 2.6, 10.4, 12), 0, -5.2, 0, 1, 1, 1.05), P(S(2.7, 8, 6), 0, -10.4, 0, 1, 1, 1)]);
+        hg.calf = rzMerge([P(C(2.6, 1.8, 9.2, 12), 0, -4.6, 0, 1, 1, 1.05)]);
+        hg.shoe = rzMerge([P(new THREE.BoxGeometry(4.2, 3.0, 8.6), 0, -8.0, 1.6, 1, 1, 1), P(S(2.2, 8, 6), 0, -8.0, 5.4, 1.0, 0.7, 1.0)]);
+        rzHG = hg;
+        return hg;
+    }
+
+    // Kâşif (oyuncu): şapka, yelek, kemer, çanta; eklemli kollar/bacaklar
+    function buildExplorer() {
+        const G = rzGetHumanGeos();
+        const root = new THREE.Group(), model = new THREE.Group(), body = new THREE.Group();
+        root.add(model); model.add(body);
+        model.scale.setScalar(2);
+        root.rotation.y = Math.PI;   // yüz -z yönüne (ileri) baksın
+        const skinM = stdMat(0xe8b88a, 0.6, 0, 0.3, { emissive: 0x2a1a10 });
+        const shirtM = stdMat(0xb8a074, 0.9), vestM = stdMat(0x6a4426, 0.7, 0.05), pantsM = stdMat(0x4a3b2a, 0.9);
+        const hairM = stdMat(0x2b1d12, 0.5, 0.15, 0.4), bootM = stdMat(0x2b1b10, 0.55, 0.05, 0.4), hatM = stdMat(0x5a3a1e, 0.85), bandM = stdMat(0x2b1b10, 0.8);
+        const featM = bendify(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, envMapIntensity: 0.3 }));
+        const C = (rt, rb, h, s) => new THREE.CylinderGeometry(rt, rb, h, s || 14);
+        const add = (geo, mat, parent) => { const m = new THREE.Mesh(geo, mat); parent.add(m); return m; };
+        add(G.skinBody, skinM, body); add(G.shirtBody, shirtM, body); add(G.pantsBody, pantsM, body); add(G.hair, hairM, body); add(G.features, featM, body);
+        const vest = add(C(7.9, 6.4, 13.5, 16), vestM, body); vest.scale.set(1.22, 1, 0.72); vest.position.set(0, 39, 0);
+        const belt = add(C(6.7, 6.7, 1.8, 16), stdMat(0x2a1a10, 0.6), body); belt.scale.set(1.17, 1, 0.8); belt.position.set(0, 29.8, 0);
+        add(new THREE.BoxGeometry(2, 1.6, 0.8), goldMat, body).position.set(0, 29.8, 5.7);
+        add(new THREE.BoxGeometry(5.5, 11, 13), vestM, body).position.set(-9.6, 27.5, -1);
+        const strap = add(new THREE.BoxGeometry(1.8, 34, 0.8), vestM, body); strap.position.set(0, 38, 5.2); strap.rotation.z = -0.62;
+        const crown = add(C(4.3, 5.0, 4.4, 18), hatM, body); crown.position.set(0, 59.0, 0);
+        const brim = add(C(8.6, 8.6, 0.5, 24), hatM, body); brim.position.set(0, 57.0, 0.4); brim.rotation.x = 0.08;
+        add(C(5.1, 5.1, 1.0, 18), bandM, body).position.set(0, 57.7, 0);
+        const mkArm = x => {
+            const arm = new THREE.Group(); arm.position.set(x, 44, 0);
+            add(G.sleeve, shirtM, arm); add(G.upperSkin, skinM, arm);
+            const elbow = new THREE.Group(); elbow.position.set(0, -11, 0);
+            add(G.foreArm, skinM, elbow); arm.add(elbow); body.add(arm);
+            return { arm: arm, elbow: elbow };
+        };
+        const mkLeg = x => {
+            const leg = new THREE.Group(); leg.position.set(x, 20, 0);
+            add(G.thigh, pantsM, leg);
+            const knee = new THREE.Group(); knee.position.set(0, -10.4, 0);
+            add(G.calf, pantsM, knee); add(G.shoe, bootM, knee); leg.add(knee); body.add(leg);
+            return { leg: leg, knee: knee };
+        };
+        const aL = mkArm(-9.8), aR = mkArm(9.8), lL = mkLeg(-4.2), lR = mkLeg(4.2);
+        return { root: root, body: body, armL: aL.arm, armR: aR.arm, elbowL: aL.elbow, elbowR: aR.elbow, legL: lL.leg, legR: lR.leg, kneeL: lL.knee, kneeR: lR.knee };
+    }
+    const ex = buildExplorer();
+    scene.add(ex.root);
+    // oyuncunun altındaki yumuşak gölge
+    const blobCv = mkCanvas(128, 128), bg = blobCv.getContext('2d');
+    const bgr = bg.createRadialGradient(64, 64, 4, 64, 64, 64);
+    bgr.addColorStop(0, 'rgba(0,0,0,0.65)'); bgr.addColorStop(1, 'rgba(0,0,0,0)');
+    bg.fillStyle = bgr; bg.fillRect(0, 0, 128, 128);
+    const blob = new THREE.Mesh(new THREE.PlaneGeometry(90, 70), bendify(new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(blobCv), transparent: true, depthWrite: false })));
+    blob.rotation.x = -Math.PI / 2; blob.position.y = 1;
+    scene.add(blob);
+
+    // Heykel geometrisi (taştan, yan nişlerde)
+    function buildStatueGeo() {
+        const G = rzGetHumanGeos(), P = rzPiece, list = [G.skinBody, G.shirtBody, G.pantsBody, G.hair];
+        [-1, 1].forEach(s => {
+            list.push(P(G.sleeve, s * 9.8, 44, 0, 1, 1, 1), P(G.upperSkin, s * 9.8, 44, 0, 1, 1, 1), P(G.foreArm, s * 9.8, 33, 0, 1, 1, 1));
+            list.push(P(G.thigh, s * 4.2, 20, 0, 1, 1, 1), P(G.calf, s * 4.2, 9.6, 0, 1, 1, 1), P(G.shoe, s * 4.2, 9.6, 0, 1, 1, 1));
+        });
+        list.push(P(new THREE.CylinderGeometry(0.8, 0.8, 74, 8), 12.2, 36, 3, 1, 1, 1));   // asa
+        return rzMerge(list);
+    }
+    const statueGeo = buildStatueGeo();
+
+    // ---- Tapınak koridoru: kayan parçalar (chunk) ----
+    const CH_LEN = 400, CH_COUNT = 6;
+    const floorGeo = new THREE.PlaneGeometry(440, CH_LEN);
+    const ledgeGeo = new THREE.BoxGeometry(110, 14, CH_LEN);
+    const wallGeo = new THREE.BoxGeometry(40, 300, CH_LEN);
+    const corniceGeo = new THREE.BoxGeometry(70, 18, CH_LEN);
+    const pBaseGeo = new THREE.BoxGeometry(46, 20, 46), pShaftGeo = new THREE.CylinderGeometry(15, 17, 220, 20), pCapGeo = new THREE.BoxGeometry(58, 16, 58);
+    const holderGeo = new THREE.CylinderGeometry(3, 3.6, 30, 8), flameGeo = new THREE.ConeGeometry(7, 24, 8);
+    const beamGeo = new THREE.BoxGeometry(740, 34, 56), pedGeo = new THREE.BoxGeometry(60, 30, 60);
+    const chunks = [];
+    function buildChunk() {
+        const g = new THREE.Group();
+        const floor = new THREE.Mesh(floorGeo, floorMat); floor.rotation.x = -Math.PI / 2; g.add(floor);
+        const lines = new THREE.Mesh(floorGeo, lineMat); lines.rotation.x = -Math.PI / 2; lines.position.y = 0.6; g.add(lines);
+        const flamePts = [];
+        [-1, 1].forEach(s => {
+            const ledge = new THREE.Mesh(ledgeGeo, ledgeMat); ledge.position.set(s * 275, 7, 0); g.add(ledge);
+            const wall = new THREE.Mesh(wallGeo, wallMat); wall.position.set(s * 350, 150, 0); g.add(wall);
+            const cor = new THREE.Mesh(corniceGeo, stoneMat); cor.position.set(s * 335, 308, 0); g.add(cor);
+            [-100, 100].forEach(zz => {
+                const base = new THREE.Mesh(pBaseGeo, stoneMat); base.position.set(s * 300, 10, zz);
+                const shaft = new THREE.Mesh(pShaftGeo, pillarMat); shaft.position.set(s * 300, 130, zz);
+                const cap = new THREE.Mesh(pCapGeo, stoneMat); cap.position.set(s * 300, 250, zz);
+                const holder = new THREE.Mesh(holderGeo, ironMat); holder.position.set(s * 282, 152, zz); holder.rotation.z = s * 0.35;
+                const flame = new THREE.Mesh(flameGeo, flameMat); flame.position.set(s * 278, 180, zz);
+                g.add(base, shaft, cap, holder, flame);
+                flamePts.push(s * 278, 182, zz);
+            });
+        });
+        const pgeo = new THREE.BufferGeometry();
+        pgeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(flamePts), 3));
+        const glow = new THREE.Points(pgeo, glowMat); glow.frustumCulled = false; g.add(glow);
+        const beam = new THREE.Mesh(beamGeo, stoneMat); beam.position.set(0, 338, 0); g.add(beam);
+        const statues = [-1, 1].map(s => {
+            const grp = new THREE.Group();
+            const ped = new THREE.Mesh(pedGeo, stoneMat); ped.position.y = 15;
+            const st = new THREE.Mesh(statueGeo, statueMat); st.scale.setScalar(3.2); st.position.y = 30; st.rotation.y = -s * Math.PI / 2;
+            grp.add(ped, st); grp.position.set(s * 296, 0, 0); g.add(grp);
+            return grp;
+        });
+        g.userData = { beam: beam, statues: statues };
+        return g;
+    }
+    function randomizeChunk(c) {
+        c.userData.beam.visible = Math.random() < 0.75;
+        c.userData.statues[0].visible = Math.random() < 0.55;
+        c.userData.statues[1].visible = Math.random() < 0.55;
+    }
+    for (let i = 0; i < CH_COUNT; i++) {
+        const c = buildChunk();
+        c.position.z = 200 - i * CH_LEN;
+        randomizeChunk(c);
+        scene.add(c);
+        chunks.push(c);
+    }
+
+    // ---- Engeller ve altınlar ----
+    const barrierGeo = new THREE.BoxGeometry(95, 85, 70), barrierCapGeo = new THREE.BoxGeometry(105, 10, 80), studGeo = new THREE.SphereGeometry(4, 8, 6);
+    const barrierSide = stdMat(0x7a5a46, 0.9, 0, 0.2, { map: stoneTex, bumpMap: stoneTex, bumpScale: 1.5 });
+    const barrierFront = stdMat(0xffffff, 0.8, 0, 0.3, { map: glyphTex, bumpMap: glyphTex, bumpScale: 1.5 });
+    const barrierMats = [barrierSide, barrierSide, barrierSide, barrierSide, barrierFront, barrierFront];
+    const lintelGeo = new THREE.BoxGeometry(140, 36, 56), archPillarGeo = new THREE.BoxGeometry(22, 75, 44), trimGeo = new THREE.BoxGeometry(142, 4, 58);
+    const runeGeo = new THREE.BoxGeometry(100, 3, 1);
+    const runeMat = bendify(new THREE.MeshBasicMaterial({ color: 0xff5533 }));
+    const archStone = stdMat(0x78281f, 0.85, 0, 0.25, { map: stoneTex, bumpMap: stoneTex, bumpScale: 1.5 });
+    const coinGeo = new THREE.CylinderGeometry(14, 14, 4, 28), coinCenterGeo = new THREE.CylinderGeometry(9, 9, 5.4, 24);
+    const coinMat = stdMat(0xffc933, 0.28, 0.65, 1.6, { emissive: 0x6b4a00 });
+    const coinCenterMat = stdMat(0xffe27a, 0.25, 0.7, 1.6, { emissive: 0x7a5800 });
+
+    function makeObstacle(o) {
+        const grp = new THREE.Group();
+        if (o.type === 'barrier') {
+            const b = new THREE.Mesh(barrierGeo, barrierMats); b.position.y = 42.5; grp.add(b);
+            const cap = new THREE.Mesh(barrierCapGeo, goldMat); cap.position.y = 90; grp.add(cap);
+            [[-46, 8], [46, 8], [-46, 78], [46, 78]].forEach(p => { const s = new THREE.Mesh(studGeo, goldMat); s.position.set(p[0], p[1], 36); grp.add(s); });
+        } else {
+            const lin = new THREE.Mesh(lintelGeo, archStone); lin.position.y = 93; grp.add(lin);
+            const trim = new THREE.Mesh(trimGeo, goldMat); trim.position.y = 112; grp.add(trim);
+            [-50, 50].forEach(x => { const p = new THREE.Mesh(archPillarGeo, archStone); p.position.set(x, 37.5, 0); grp.add(p); });
+            [-28.5, 28.5].forEach(z => { const r = new THREE.Mesh(runeGeo, runeMat); r.position.set(0, 80, z); grp.add(r); });
+        }
+        return grp;
+    }
+    function makeCoin() {
+        const grp = new THREE.Group();
+        const a = new THREE.Mesh(coinGeo, coinMat); a.rotation.x = Math.PI / 2;
+        const b = new THREE.Mesh(coinCenterGeo, coinCenterMat); b.rotation.x = Math.PI / 2;
+        grp.add(a, b);
+        return grp;
+    }
+    const obsVis = [], coinVis = [];
+    function syncVisuals(mv, t) {
+        obstacles.forEach(o => {
+            if (!o._v) { o._v = { obj: makeObstacle(o), ref: o, z: 0 }; scene.add(o._v.obj); obsVis.push(o._v); }
+        });
+        for (let i = obsVis.length - 1; i >= 0; i--) {
+            const v = obsVis[i];
+            if (obstacles.indexOf(v.ref) !== -1) v.z = -(v.ref.z - 55);
+            else if (v.ref.z >= 0) { scene.remove(v.obj); obsVis.splice(i, 1); continue; }
+            else v.z += mv;
+            if (v.z > 320) { scene.remove(v.obj); obsVis.splice(i, 1); continue; }
+            v.obj.position.set(v.ref.lane * 130, 0, v.z);
+        }
         collectibleCoins.forEach(c => {
-            let scale = 1000 / (1000 + c.z);
-            let curveFactor = roadCurve * (1 - c.z / 1000) * 150;
-            let x = centerX + c.lane * 140 * scale + player.currentXOffset * scale * 0.15 + curveFactor;
-            let y = horizonY + (roadBottomY - horizonY) * (1 - c.z / 1000);
-            let radius = 13 * scale;
-
-            if (radius > 0) {
-                ctx.fillStyle = '#f1c40f';
-                ctx.beginPath();
-                ctx.arc(x, y - 25, radius, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.strokeStyle = '#b7950b';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-            }
+            if (!c._v) { c._v = { obj: makeCoin(), ref: c, z: 0, ph: Math.random() * 6 }; scene.add(c._v.obj); coinVis.push(c._v); }
         });
+        for (let i = coinVis.length - 1; i >= 0; i--) {
+            const v = coinVis[i];
+            if (collectibleCoins.indexOf(v.ref) !== -1) v.z = -(v.ref.z - 55);
+            else if (v.ref.z >= 0 || v.ref._taken) { scene.remove(v.obj); coinVis.splice(i, 1); continue; }
+            else v.z += mv;
+            if (v.z > 320) { scene.remove(v.obj); coinVis.splice(i, 1); continue; }
+            v.obj.position.set(v.ref.lane * 130, 40 + Math.sin(t * 4 + v.ph) * 3, v.z);
+            v.obj.rotation.y = t * 3 + v.ph;
+        }
+    }
 
-        // Engelleri Çiz (Yere basan veya kemer yapılar)
-        obstacles.forEach(obs => {
-            let scale = 1000 / (1000 + obs.z);
-            let curveFactor = roadCurve * (1 - obs.z / 1000) * 150;
-            let x = centerX + obs.lane * 140 * scale + player.currentXOffset * scale * 0.15 + curveFactor;
-            let y = horizonY + (roadBottomY - horizonY) * (1 - obs.z / 1000);
-            let w = obs.width * scale;
-            let h = obs.height * scale;
+    // ---- Altın patlaması efekti ----
+    const fxList = [];
+    const fxGeo = new THREE.SphereGeometry(2.4, 6, 5);
+    function spawnCoinFx(c) {
+        c._taken = true;
+        const x = c.lane * 130;
+        for (let i = 0; i < 9; i++) {
+            const m = new THREE.Mesh(fxGeo, bendify(new THREE.MeshBasicMaterial({ color: 0xffd34d, transparent: true })));
+            m.position.set(x, 40, 0);
+            scene.add(m);
+            const a = Math.random() * Math.PI * 2, s = rnd(1.5, 4);
+            fxList.push({ m: m, vx: Math.cos(a) * s, vy: rnd(2, 5), vz: Math.sin(a) * s, life: 28, max: 28 });
+        }
+    }
+    function updateFx(mv) {
+        for (let i = fxList.length - 1; i >= 0; i--) {
+            const p = fxList[i];
+            p.life--;
+            p.m.position.x += p.vx; p.m.position.y += p.vy; p.m.position.z += p.vz + mv;
+            p.vy -= 0.25;
+            p.m.material.opacity = Math.max(0, p.life / p.max);
+            if (p.life <= 0) { scene.remove(p.m); p.m.material.dispose(); fxList.splice(i, 1); }
+        }
+    }
 
-            if (w > 0) {
-                if (obs.type === 'barrier') {
-                    ctx.fillStyle = '#962d22';
-                    ctx.fillRect(x - w / 2, y - h, w, h);
-                    ctx.strokeStyle = '#f5b041';
-                    ctx.lineWidth = 2;
-                    ctx.strokeRect(x - w / 2, y - h, w, h);
-                } else if (obs.type === 'arch') {
-                    // Üstü dolu, altı boş kemer tapınak yapısı
-                    ctx.fillStyle = '#78281f';
-                    // Üst kiriş
-                    ctx.fillRect(x - w / 2 - 15, y - h, w + 30, 35);
-                    // Sağ ve sol sütunlar (altı boşluk bırakır)
-                    ctx.fillRect(x - w / 2 - 10, y - h + 35, 20, h - 35);
-                    ctx.fillRect(x + w / 2 - 10, y - h + 35, 20, h - 35);
-                    ctx.strokeStyle = '#e74c3c';
-                    ctx.lineWidth = 2;
-                    ctx.strokeRect(x - w / 2 - 15, y - h, w + 30, h);
-                }
-            }
+    // ---- Havada uçuşan kıvılcım / toz ----
+    const EMBER_N = 150;
+    const emberPos = new Float32Array(EMBER_N * 3), emberVel = [];
+    for (let i = 0; i < EMBER_N; i++) {
+        emberPos[i * 3] = rnd(-320, 320); emberPos[i * 3 + 1] = rnd(10, 320); emberPos[i * 3 + 2] = rnd(-1700, 250);
+        emberVel.push({ x: rnd(-0.3, 0.3), y: rnd(0.05, 0.4) });
+    }
+    const emberGeo = new THREE.BufferGeometry();
+    emberGeo.setAttribute('position', new THREE.BufferAttribute(emberPos, 3));
+    const embers = new THREE.Points(emberGeo, bendify(new THREE.PointsMaterial({ map: dustTex, color: 0xffb060, size: 7, sizeAttenuation: true, transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending, fog: false })));
+    embers.frustumCulled = false;
+    scene.add(embers);
+
+    // ---- Koşucu animasyonu ----
+    let runPhase = 0, slideAmt = 0, airAmt = 0, shakeT = 0, camX = 0;
+    function animateExplorer(t) {
+        const moving = gameState === 'PLAYING' || gameState === 'PAUSED';
+        if (gameState === 'PLAYING') runPhase += gameSpeed * 0.035;
+        const sw = Math.sin(runPhase) * 0.9;
+        slideAmt += ((player.isSliding ? 1 : 0) - slideAmt) * 0.25;
+        airAmt += ((player.isJumping ? 1 : 0) - airAmt) * 0.3;
+        const run = moving ? (1 - airAmt) * (1 - slideAmt) : 0;
+        const idle = moving ? 0 : 1;
+        ex.legL.rotation.x = run * -sw + airAmt * -0.75 + slideAmt * -0.15;
+        ex.legR.rotation.x = run * sw + airAmt * 0.2 + slideAmt * -0.15;
+        ex.kneeL.rotation.x = run * Math.max(0, Math.cos(runPhase)) * 1.3 + airAmt * 1.3 + slideAmt * 0.1;
+        ex.kneeR.rotation.x = run * Math.max(0, -Math.cos(runPhase)) * 1.3 + airAmt * 0.4 + slideAmt * 0.1;
+        ex.armL.rotation.x = run * sw + airAmt * -1.6 + slideAmt * -2.4;
+        ex.armR.rotation.x = run * -sw + airAmt * -0.9 + slideAmt * -2.4;
+        ex.elbowL.rotation.x = -0.9 * run - 0.4 * airAmt - 0.12 * idle;
+        ex.elbowR.rotation.x = -0.9 * run - 0.4 * airAmt - 0.12 * idle;
+        ex.body.rotation.x = run * 0.18 - slideAmt * 1.2 + airAmt * 0.12;
+        ex.body.rotation.y = run * sw * 0.12;
+        ex.body.position.y = run * Math.abs(Math.sin(runPhase)) * 3 + slideAmt * 4;
+        ex.body.scale.y = 1 + Math.sin(t * 1.9) * 0.006 * idle;
+        ex.root.position.set(player.currentXOffset, -player.y, 0);
+        const sh = Math.max(0.25, 1 - (-player.y) / 260);
+        blob.position.x = player.currentXOffset;
+        blob.scale.set(sh, sh, 1);
+    }
+
+    function draw() {
+        const t = performance.now() / 1000;
+        const mv = gameState === 'PLAYING' ? gameSpeed : (gameState === 'MENU' ? 3 : 0);
+        bendU.value = roadCurve * 0.00036;
+        chunks.forEach(c => {
+            c.position.z += mv;
+            if (c.position.z > 600) { c.position.z -= CH_LEN * CH_COUNT; randomizeChunk(c); }
         });
+        syncVisuals(mv, t);
+        updateFx(mv);
+        animateExplorer(t);
 
-        // Karakter Çizimi
-        let pScreenX = canvasWidth / 2 + player.currentXOffset + (roadCurve * 80);
-        let pScreenY = roadBottomY - 150 + player.y;
-        
-        let legSwing = Math.sin(animTimer) * 20;
-        let armSwing = Math.cos(animTimer) * 20;
-        if (player.isJumping) { legSwing = 10; armSwing = -15; }
-        if (player.isSliding) { legSwing = 0; armSwing = 0; }
+        // kıvılcımlar
+        for (let i = 0; i < EMBER_N; i++) {
+            emberPos[i * 3] += emberVel[i].x + Math.sin(t * 2 + i) * 0.15;
+            emberPos[i * 3 + 1] += emberVel[i].y;
+            emberPos[i * 3 + 2] += mv * 0.9 + 0.3;
+            if (emberPos[i * 3 + 2] > 260 || emberPos[i * 3 + 1] > 340) {
+                emberPos[i * 3] = rnd(-320, 320); emberPos[i * 3 + 1] = rnd(5, 120); emberPos[i * 3 + 2] = rnd(-1700, -900);
+            }
+        }
+        emberGeo.attributes.position.needsUpdate = true;
+        glowMat.size = 80 + Math.sin(t * 14) * 8 + Math.random() * 4;
 
-        let bodyHeight = player.isSliding ? 40 : 85;
-        let bodyWidth = player.isSliding ? 70 : 45;
-        let bodyY = player.isSliding ? pScreenY - 45 : pScreenY - bodyHeight;
+        // meşale ışıkları
+        torchLight.position.set(player.currentXOffset * 0.6, 170, 60);
+        torchLight.intensity = 1.8 + Math.sin(t * 20) * 0.15 + Math.random() * 0.12;
 
-        // Baş
-        ctx.fillStyle = '#f39c12';
-        ctx.beginPath();
-        ctx.arc(pScreenX, bodyY - 18, 14, 0, Math.PI * 2);
-        ctx.fill();
+        // kamera
+        camX += (player.currentXOffset * 0.55 - camX) * 0.1;
+        let shx = 0, shy = 0;
+        if (shakeT > 0) { shakeT--; shx = (Math.random() - 0.5) * shakeT * 0.8; shy = (Math.random() - 0.5) * shakeT * 0.8; }
+        const idleSway = gameState === 'MENU' ? Math.sin(t * 0.4) * 40 : 0;
+        camera.position.set(camX + shx + idleSway, 175 - slideAmt * 40 + shy, 235);
+        camera.lookAt(player.currentXOffset * 0.35, 62, -430);
+        camera.rotateZ(-(player.lane * 130 - player.currentXOffset) * 0.0009);
+        const fov = 62 + (gameSpeed - 9.5) * 0.6;
+        if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = fov; camera.updateProjectionMatrix(); }
+        sky.position.copy(camera.position);
 
-        // Gövde
-        ctx.fillStyle = '#2980b9';
-        ctx.fillRect(pScreenX - bodyWidth / 2, bodyY, bodyWidth, bodyHeight);
-
-        // Kollar
-        ctx.strokeStyle = '#2980b9';
-        ctx.lineWidth = 8;
-        ctx.lineCap = 'round';
-        
-        ctx.beginPath();
-        ctx.moveTo(pScreenX - bodyWidth / 2, bodyY + 15);
-        ctx.lineTo(pScreenX - bodyWidth / 2 - 15, bodyY + 35 + armSwing);
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.moveTo(pScreenX + bodyWidth / 2, bodyY + 15);
-        ctx.lineTo(pScreenX + bodyWidth / 2 + 15, bodyY + 35 - armSwing);
-        ctx.stroke();
-
-        // Bacaklar
-        ctx.strokeStyle = '#2c3e50';
-        ctx.lineWidth = 10;
-
-        ctx.beginPath();
-        ctx.moveTo(pScreenX - 10, bodyY + bodyHeight);
-        ctx.lineTo(pScreenX - 15 + legSwing, bodyY + bodyHeight + 35);
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.moveTo(pScreenX + 10, bodyY + bodyHeight);
-        ctx.lineTo(pScreenX + 15 - legSwing, bodyY + bodyHeight + 35);
-        ctx.stroke();
+        renderer.render(scene, camera);
     }
 
     function gameLoop() {

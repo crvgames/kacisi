@@ -1,76 +1,208 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="tr">
 <head>
- <link rel="icon" href="favicon0.png" type="image/png">
+<link rel="icon" href="favicon0.png" type="image/png">
 <meta name="google-site-verification" content="kLCS6z8Lb3jZLTBq6-TJDJSFEFtRTSW3B3IMBYlx5wo" />
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Karanlık Koridor Kaçışı 3D</title>
+    <title>Koridor Kaçışı</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; user-select: none; }
         html, body {
             margin: 0; padding: 0; width: 100vw; height: 100vh;
-            background-color: #0b0b0e; color: white;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #87CEEB; color: #2c3e50;
+            font-family: 'Fredoka', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             overflow: hidden; display: flex; justify-content: center; align-items: center;
         }
         #game-wrapper {
             position: relative; width: 100vw; height: 100vh;
-            display: flex; justify-content: center; align-items: center; background: #111;
+            display: flex; justify-content: center; align-items: center; background: #e0f7fa;
         }
-        canvas { display: block; box-shadow: 0 0 50px rgba(0,0,0,0.95); }
+        canvas { display: block; }
+
         .screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(12, 12, 18, 0.95); display: flex;
-            flex-direction: column; align-items: center; justify-content: center; z-index: 100;
+            background: linear-gradient(135deg, rgba(135, 206, 235, 0.85) 0%, rgba(224, 247, 250, 0.92) 100%);
+            backdrop-filter: blur(8px);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 100; padding: 20px;
         }
         .hidden { display: none !important; }
-        h1 { font-size: 48px; margin-bottom: 5px; color: #f39c12; text-shadow: 0 4px 15px rgba(243,156,18,0.5); text-align: center; }
-        p { color: #ccc; margin-bottom: 25px; font-size: 16px; text-align: center; line-height: 1.6; max-width: 600px; }
-        .btn {
-            background-color: #d35400; color: white; border: none; padding: 15px 40px;
-            font-size: 18px; font-weight: bold; border-radius: 30px; cursor: pointer;
-            box-shadow: 0 5px 20px rgba(211,84,0,0.4); transition: all 0.2s; margin: 8px; min-width: 240px;
+
+        .menu-card {
+            background: rgba(255, 255, 255, 0.92);
+            border: 3px solid #ffffff;
+            border-radius: 28px;
+            padding: 32px 38px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.18);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-width: 520px;
+            width: 100%;
+            text-align: center;
         }
-        .btn:hover { background-color: #e67e22; transform: scale(1.05); }
-        .btn-secondary { background-color: #34495e; box-shadow: 0 5px 20px rgba(0,0,0,0.4); }
-        .btn-secondary:hover { background-color: #2c3e50; }
+
+        h1 {
+            font-size: 42px; margin: 0 0 10px 0; color: #800020;
+            letter-spacing: 1px; text-transform: uppercase;
+            text-shadow: 2px 3px 0px rgba(128, 0, 32, 0.15);
+        }
+        p.subtitle {
+            color: #546e7a; margin: 0 0 22px 0; font-size: 15px; line-height: 1.5;
+        }
+
+        .menu-buttons {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 14px;
+            width: 100%;
+            max-width: 300px;
+        }
+
+        .btn {
+            background: linear-gradient(180deg, #a00028 0%, #800020 100%);
+            color: #ffffff; border: none; padding: 16px 28px;
+            font-family: 'Fredoka', sans-serif;
+            font-size: 19px; font-weight: 600; letter-spacing: 0.8px;
+            border-radius: 16px; cursor: pointer;
+            box-shadow: 0 6px 0 #4d0013, 0 12px 20px rgba(128, 0, 32, 0.3);
+            transition: transform 0.12s, box-shadow 0.12s, filter 0.15s;
+            width: 100%;
+        }
+        .btn:hover {
+            filter: brightness(1.08);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 0 #4d0013, 0 15px 24px rgba(128, 0, 32, 0.35);
+        }
+        .btn:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 #4d0013, 0 6px 12px rgba(128, 0, 32, 0.25);
+        }
+
+        .btn-char {
+            background: linear-gradient(180deg, #2980b9 0%, #1f618d 100%);
+            box-shadow: 0 6px 0 #154360, 0 12px 20px rgba(41, 128, 185, 0.3);
+        }
+        .btn-secondary {
+            background: linear-gradient(180deg, #795548 0%, #5d4037 100%);
+            box-shadow: 0 6px 0 #3e2723, 0 12px 20px rgba(93, 64, 55, 0.25);
+        }
+
+        .selected-badge {
+            background: #f1c40f; color: #3e2723; font-weight: 700;
+            padding: 6px 16px; border-radius: 20px; font-size: 14px;
+            margin-bottom: 14px; display: inline-block;
+            box-shadow: 0 3px 8px rgba(241, 196, 15, 0.35);
+        }
+
+        .gold-wallet-badge {
+            background: #fff8e1; color: #d35400; border: 2px solid #f1c40f;
+            font-weight: 700; padding: 6px 18px; border-radius: 20px; font-size: 16px;
+            margin-bottom: 16px; display: inline-block;
+        }
+
+        .char-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        .char-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #f8f9fa;
+            border: 3px solid #dfe6e9;
+            border-radius: 16px;
+            padding: 12px 18px;
+            cursor: pointer;
+            transition: all 0.15s;
+            text-align: left;
+        }
+        .char-item:hover {
+            border-color: #3498db;
+            background: #ebf5fb;
+        }
+        .char-item.active {
+            border-color: #27ae60;
+            background: #e8f8f5;
+            box-shadow: 0 4px 12px rgba(39, 174, 96, 0.2);
+        }
+        .char-item.locked {
+            background: #f4f6f7;
+            border-color: #d5dbdb;
+        }
+        .char-info h3 {
+            margin: 0 0 3px 0; font-size: 20px; color: #2c3e50;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .char-info span {
+            font-size: 13px; color: #636e72; font-weight: 500;
+        }
+        .char-color-dot {
+            width: 16px; height: 16px; border-radius: 50%; display: inline-block; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        .char-status {
+            font-size: 13px; font-weight: 700; padding: 6px 14px;
+            border-radius: 12px; background: #dfe6e9; color: #2d3436;
+            white-space: nowrap;
+        }
+        .char-item.active .char-status {
+            background: #27ae60; color: #ffffff;
+        }
+        .char-item.locked .char-status {
+            background: #f39c12; color: #ffffff;
+        }
 
         #hud {
-            position: absolute; top: 20px; left: 20px; right: 160px;
-            display: flex; justify-content: flex-start; align-items: center; gap: 15px;
-            font-size: 18px; font-weight: bold; pointer-events: none; z-index: 50;
+            position: absolute; top: 20px; left: 20px; right: 170px;
+            display: flex; flex-wrap: wrap; justify-content: flex-start; align-items: center; gap: 10px;
+            font-size: 16px; font-weight: 700; pointer-events: none; z-index: 50;
         }
-        .hud-box { background: rgba(0,0,0,0.7); padding: 8px 16px; border-radius: 10px; border: 1px solid #444; backdrop-filter: blur(4px); }
+        .hud-box {
+            background: rgba(255, 255, 255, 0.94); padding: 8px 14px;
+            border-radius: 14px; border: 2px solid #dfe6e9;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); color: #2c3e50;
+        }
 
         #pause-btn {
             position: absolute; top: 20px; right: 20px; z-index: 60;
-            background-color: #2c3e50; color: #fff; border: 2px solid #4f6d7a; padding: 10px 22px;
-            font-size: 15px; font-weight: bold; border-radius: 8px; cursor: pointer;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.4); transition: all 0.2s; pointer-events: auto;
+            background: #34495e; color: #fff; border: 2px solid #5d6d7e; padding: 10px 20px;
+            font-family: 'Fredoka', sans-serif; font-size: 15px; font-weight: 600;
+            border-radius: 12px; cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); transition: all 0.15s; pointer-events: auto;
         }
-        #pause-btn:hover { background-color: #34495e; transform: scale(1.05); }
+        #pause-btn:hover { background: #2c3e50; transform: scale(1.04); }
 
-        /* EKRAN KONTROL TUŞLARI (MOBİL / DOKUNMATİK DESTEĞİ) */
         #touch-controls {
             position: absolute; bottom: 20px; width: 100%; display: flex;
             justify-content: space-between; padding: 0 30px; z-index: 70; pointer-events: none;
         }
         .control-group { display: flex; gap: 12px; pointer-events: auto; }
         .t-btn {
-            background: rgba(44, 62, 80, 0.8); border: 2px solid rgba(255,255,255,0.3);
-            color: white; font-size: 20px; font-weight: bold; width: 65px; height: 65px;
+            background: rgba(52, 73, 94, 0.85); border: 2px solid rgba(255,255,255,0.7);
+            color: white; font-size: 28px; font-weight: bold; width: 98px; height: 98px;
             border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5); transition: background 0.1s;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: background 0.1s;
         }
-        .t-btn:active { background: rgba(211, 84, 0, 0.9); transform: scale(0.95); }
+        .t-btn:active { background: rgba(128, 0, 32, 0.9); transform: scale(0.95); }
 
-        #pause-screen, #game-over-screen {
-            background: rgba(10, 10, 15, 0.92);
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 90;
+        /* OYUN İÇİ BİLDİRİM BANNER'I */
+        #game-notification {
+            position: absolute; top: 32px; left: 50%; transform: translateX(-50%) translateY(-25px);
+            background: rgba(44, 62, 80, 0.96); color: white; padding: 12px 28px; border-radius: 24px;
+            font-size: 17px; font-weight: 700; z-index: 200;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.35); border: 2px solid rgba(255,255,255,0.25);
+            opacity: 0; pointer-events: none; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            text-align: center;
         }
-        #main-menu { background: radial-gradient(ellipse at center, rgba(8,6,14,0.35) 0%, rgba(8,6,14,0.78) 100%); }
+        #game-notification.show {
+            opacity: 1; transform: translateX(-50%) translateY(0);
+        }
     </style>
 </head>
 <body>
@@ -78,48 +210,79 @@
     <button id="pause-btn" class="hidden" onclick="togglePause()">DURAKLAT [ESC]</button>
 
     <div id="hud" class="hidden">
-        <div class="hud-box" style="color: #f1c40f;">ALTIN: <span id="coin-hud">0</span></div>
-        <div class="hud-box" style="color: #3498db;">SKOR: <span id="score-hud">0</span></div>
-        <div class="hud-box" style="color: #e67e22;">EN YÜKSEK: <span id="high-score-hud">0</span></div>
+        <div class="hud-box">KARAKTER: <span id="char-hud" style="color: #800020;">Faruk</span></div>
+        <div class="hud-box">CAN: <span id="life-hud" style="color: #e74c3c;">❤️</span></div>
+        <div class="hud-box">ALTIN: <span id="coin-hud" style="color: #d35400;">0</span></div>
+        <div class="hud-box">SKOR: <span id="score-hud" style="color: #2980b9;">0</span> <span id="mult-hud" style="color:#27ae60;"></span></div>
+        <div class="hud-box">REKOR: <span id="high-score-hud" style="color: #8e44ad;">0</span></div>
     </div>
 
-    <!-- EKRAN KONTROL BUTONLARI -->
+    <!-- OYUN İÇİ BİLDİRİM ALANI -->
+    <div id="game-notification"></div>
+
     <div id="touch-controls" class="hidden">
         <div class="control-group">
             <button class="t-btn" onclick="movePlayer('left')">◀</button>
             <button class="t-btn" onclick="movePlayer('right')">▶</button>
         </div>
         <div class="control-group">
-            <button class="t-btn" onclick="movePlayer('slide')" style="background: rgba(192, 57, 43, 0.8);">▼</button>
-            <button class="t-btn" onclick="movePlayer('jump')" style="background: rgba(39, 174, 96, 0.8);">▲</button>
+            <button class="t-btn" onclick="movePlayer('slide')" style="background: rgba(192, 57, 43, 0.9);">▼</button>
+            <button class="t-btn" onclick="movePlayer('jump')" style="background: rgba(39, 174, 96, 0.9);">▲</button>
         </div>
     </div>
 
     <!-- ANA MENÜ -->
     <div id="main-menu" class="screen">
-        <h1>KARANLIK KORİDOR KAÇIŞI</h1>
-        <p>
-            Virajlı yollar, eğilip geçilen kemerler ve aksiyon dolu müzik eşliğinde kaçış!<br>
-            <b>Kontroller:</b> [SOL/SAĞ] Şerit / Viraj Dönüşü | [YUKARI] Zıpla | [AŞAĞI] Eğil<br>
-            [ESC] Duraklat
-        </p>
-        <button class="btn" onclick="startGame()">MACERAYA BAŞLA</button>
+        <div class="menu-card">
+            <h1>KORİDOR KAÇIŞI</h1>
+            <p class="subtitle">
+                Engellerin üstünden atla, yüksek kemerlerin altından eğilerek geç ve altınları topla!<br>
+                <b>[SOL/SAĞ]</b> Şerit &nbsp;|&nbsp; <b>[YUKARI]</b> Zıpla &nbsp;|&nbsp; <b>[AŞAĞI]</b> Eğil
+            </p>
+            <div class="gold-wallet-badge" id="menu-total-gold">Toplam Altın: 0 🪙</div>
+            <div class="selected-badge" id="menu-selected-char">Seçili Karakter: Faruk (Standart)</div>
+            <div class="menu-buttons">
+                <button class="btn" onclick="startGame()">OYUNU BAŞLAT</button>
+                <button class="btn btn-char" onclick="openCharMenu()">KARAKTERLER</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- KARAKTERLER MENÜSÜ -->
+    <div id="char-menu" class="screen hidden">
+        <div class="menu-card">
+            <h1 style="font-size: 34px; color: #1f618d;">KARAKTER SEÇİMİ</h1>
+            <div class="gold-wallet-badge" id="char-menu-gold">Toplam Altın: 0 🪙</div>
+            <div class="char-list" id="char-list-container"></div>
+            <div class="menu-buttons">
+                <button class="btn btn-secondary" onclick="closeCharMenu()">ANA MENÜYE DÖN</button>
+            </div>
+        </div>
     </div>
 
     <!-- DURAKLATMA EKRANI -->
-    <div id="pause-screen" class="hidden">
-        <h1>OYUN DURAKLATILDI</h1>
-        <p>Soluklanma molası, kaldığın yerden devam et.</p>
-        <button class="btn" onclick="togglePause()">DEVAM ET</button>
-        <button class="btn btn-secondary" onclick="returnToMenu()">ANA MENÜYE DÖN</button>
+    <div id="pause-screen" class="screen hidden">
+        <div class="menu-card">
+            <h1>DURAKLATILDI</h1>
+            <p class="subtitle">Soluklanma molası, maceraya devam etmeye hazır mısın?</p>
+            <div class="menu-buttons">
+                <button class="btn" onclick="togglePause()">DEVAM ET</button>
+                <button class="btn btn-secondary" onclick="returnToMenu()">ANA MENÜYE DÖN</button>
+            </div>
+        </div>
     </div>
 
     <!-- OYUN BİTTİ EKRANI -->
     <div id="game-over-screen" class="screen hidden">
-        <h1 style="color: #e74c3c;">YAKALANDIN!</h1>
-        <p id="final-stats-text" style="font-size: 18px; margin-bottom: 20px;"></p>
-        <button class="btn" onclick="startGame()">TEKRAR DENE</button>
-        <button class="btn btn-secondary" onclick="returnToMenu()">ANA MENÜ</button>
+        <div class="menu-card">
+            <h1 style="color: #c0392b;">YAKALANDIN!</h1>
+            <p id="final-stats-text" class="subtitle" style="font-size: 17px; color: #2c3e50;"></p>
+            <div class="menu-buttons">
+                <button class="btn" onclick="startGame()">TEKRAR OYNA</button>
+                <button class="btn btn-char" onclick="openCharMenuFromOver()">KARAKTERLER</button>
+                <button class="btn btn-secondary" onclick="returnToMenu()">ANA MENÜ</button>
+            </div>
+        </div>
     </div>
 
     <canvas id="gameCanvas"></canvas>
@@ -131,17 +294,52 @@
     let canvasWidth = window.innerWidth;
     let canvasHeight = window.innerHeight;
 
-    // Ses ve Arka Plan Müziği (Web Audio API)
+    // ---- KARAKTER VERİLERİ & FİYATLAR ----
+    const CHARACTERS = {
+        faruk: {
+            id: 'faruk', name: 'Faruk', desc: 'Standart koşucu (Ek özellik yok)',
+            price: 0, scoreMult: 1, extraLives: 0,
+            shirtColor: 0x2980b9, pantsColor: 0xecf0f1, hairColor: 0xf39c12, dotHex: '#2980b9'
+        },
+        fatih: {
+            id: 'fatih', name: 'Fatih', desc: 'Çifte Skor (2x Puan Kazancı)',
+            price: 50, scoreMult: 2, extraLives: 0,
+            shirtColor: 0x27ae60, pantsColor: 0x2c3e50, hairColor: 0x3e2723, dotHex: '#27ae60'
+        },
+        mahmut: {
+            id: 'mahmut', name: 'Mahmut', desc: 'Yedek Can (+1 Kalkan Hakkı)',
+            price: 100, scoreMult: 1, extraLives: 1,
+            shirtColor: 0xe67e22, pantsColor: 0x34495e, hairColor: 0x1c1c1c, dotHex: '#e67e22'
+        },
+        sezgin: {
+            id: 'sezgin', name: 'Sezgin', desc: 'Çifte Skor (2x) + Yedek Can (+1 Kalkan)',
+            price: 150, scoreMult: 2, extraLives: 1,
+            shirtColor: 0x8e44ad, pantsColor: 0xf1c40f, hairColor: 0x2c3e50, dotHex: '#8e44ad'
+        }
+    };
+
+    // Kalıcı Altın ve Açık Karakter Verileri
+    let totalBankCoins = parseInt(localStorage.getItem('corridor_bank_coins') || '0');
+    let unlockedChars = JSON.parse(localStorage.getItem('corridor_unlocked_chars') || '["faruk"]');
+    if (!unlockedChars.includes('faruk')) unlockedChars.push('faruk');
+
+    let selectedCharId = localStorage.getItem('corridor_selected_char') || 'faruk';
+    if (!CHARACTERS[selectedCharId] || !unlockedChars.includes(selectedCharId)) {
+        selectedCharId = 'faruk';
+    }
+
+    function saveProgress() {
+        localStorage.setItem('corridor_bank_coins', totalBankCoins.toString());
+        localStorage.setItem('corridor_unlocked_chars', JSON.stringify(unlockedChars));
+        localStorage.setItem('corridor_selected_char', selectedCharId);
+    }
+
     let audioCtx = null;
     let musicInterval = null;
 
     function initAudio() {
-        if (!audioCtx) {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        }
-        if (audioCtx.state === 'suspended') {
-            audioCtx.resume();
-        }
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
     }
 
     function playSound(type) {
@@ -161,30 +359,37 @@
             osc.start(now); osc.stop(now + 0.15);
         } else if (type === 'jump') {
             osc.type = 'triangle';
-            osc.frequency.setValueAtTime(160, now);
-            osc.frequency.exponentialRampToValueAtTime(450, now + 0.2);
-            gainNode.gain.setValueAtTime(0.2, now);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
-            osc.start(now); osc.stop(now + 0.2);
-        } else if (type === 'crash') {
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(100, now);
-            osc.frequency.exponentialRampToValueAtTime(20, now + 0.5);
-            gainNode.gain.setValueAtTime(0.35, now);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
-            osc.start(now); osc.stop(now + 0.5);
-        } else if (type === 'turn') {
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(300, now);
-            osc.frequency.exponentialRampToValueAtTime(600, now + 0.25);
+            osc.frequency.setValueAtTime(200, now);
+            osc.frequency.exponentialRampToValueAtTime(500, now + 0.25);
             gainNode.gain.setValueAtTime(0.2, now);
             gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
             osc.start(now); osc.stop(now + 0.25);
+        } else if (type === 'shield') {
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(300, now);
+            osc.frequency.exponentialRampToValueAtTime(150, now + 0.35);
+            gainNode.gain.setValueAtTime(0.25, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+            osc.start(now); osc.stop(now + 0.35);
+        } else if (type === 'crash') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(110, now);
+            osc.frequency.exponentialRampToValueAtTime(25, now + 0.5);
+            gainNode.gain.setValueAtTime(0.32, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+            osc.start(now); osc.stop(now + 0.5);
+        } else if (type === 'buy') {
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(523.25, now);
+            osc.frequency.setValueAtTime(659.25, now + 0.08);
+            osc.frequency.setValueAtTime(783.99, now + 0.16);
+            gainNode.gain.setValueAtTime(0.2, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+            osc.start(now); osc.stop(now + 0.3);
         }
     }
 
-    // Arka Plan Aksiyon Müziği Döngüsü
-    let musicNotes = [130.81, 164.81, 196.00, 220.00, 261.63, 329.63];
+    let musicNotes = [261.63, 329.63, 392.00, 523.25];
     let noteIndex = 0;
     function startBackgroundMusic() {
         if (musicInterval) clearInterval(musicInterval);
@@ -193,9 +398,9 @@
             try {
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
-                osc.type = 'sawtooth';
+                osc.type = 'sine';
                 osc.frequency.setValueAtTime(musicNotes[noteIndex % musicNotes.length], audioCtx.currentTime);
-                gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.03, audioCtx.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
                 osc.connect(gain);
                 gain.connect(audioCtx.destination);
@@ -203,45 +408,133 @@
                 osc.stop(audioCtx.currentTime + 0.2);
                 noteIndex++;
             } catch(e) {}
-        }, 220);
+        }, 250);
     }
 
     function stopBackgroundMusic() {
-        if (musicInterval) {
-            clearInterval(musicInterval);
-            musicInterval = null;
-        }
+        if (musicInterval) { clearInterval(musicInterval); musicInterval = null; }
+    }
+
+    // Oyun içi bildirim fonksiyonu (alert komutu yerine)
+    let notifTimer = null;
+    function showGameNotification(message, bgColor = 'rgba(44, 62, 80, 0.96)', duration = 2200) {
+        const notifEl = document.getElementById('game-notification');
+        notifEl.textContent = message;
+        notifEl.style.background = bgColor;
+        notifEl.classList.add('show');
+        if (notifTimer) clearTimeout(notifTimer);
+        notifTimer = setTimeout(() => {
+            notifEl.classList.remove('show');
+        }, duration);
     }
 
     let gameState = 'MENU';
     let score = 0;
-    let coins = 0;
-    let highScore = localStorage.getItem('temple_ult_high') ? parseInt(localStorage.getItem('temple_ult_high')) : 0;
+    let runCoins = 0;
+    let currentLives = 1;
+    let invulnTimer = 0;
+    let highScore = localStorage.getItem('bright_corridor_high') ? parseInt(localStorage.getItem('bright_corridor_high')) : 0;
     document.getElementById('high-score-hud').textContent = highScore;
 
-    let gameSpeed = 9;
+    let gameSpeed = 9.5;
     let distanceTraveled = 0;
-    let animTimer = 0;
-
-    // Yol Eğriliği ve Kamera Yönetimi
     let roadCurve = 0;
     let targetCurve = 0;
     let curveTimer = 0;
 
     let player = {
-        lane: 0,
-        currentXOffset: 0,
-        y: 0,
-        z: 0,
-        isJumping: false,
-        jumpVelocity: 0,
-        isSliding: false,
-        slideTimer: 0
+        lane: 0, currentXOffset: 0, y: 0, z: 0,
+        isJumping: false, jumpVelocity: 0,
+        isSliding: false, slideTimer: 0
     };
 
     let obstacles = [];
     let collectibleCoins = [];
     let spawnTimer = 0;
+
+    function updateGoldBadges() {
+        document.getElementById('menu-total-gold').textContent = `Toplam Altın: ${totalBankCoins} 🪙`;
+        document.getElementById('char-menu-gold').textContent = `Toplam Altın: ${totalBankCoins} 🪙`;
+    }
+
+    function renderCharMenu() {
+        updateGoldBadges();
+        const container = document.getElementById('char-list-container');
+        container.innerHTML = '';
+        Object.values(CHARACTERS).forEach(c => {
+            const isUnlocked = unlockedChars.includes(c.id);
+            const isSelected = c.id === selectedCharId;
+            const div = document.createElement('div');
+            div.className = 'char-item' + (isSelected ? ' active' : (!isUnlocked ? ' locked' : ''));
+            div.onclick = () => handleCharacterClick(c.id);
+
+            let statusText = '';
+            if (isSelected) statusText = 'SEÇİLDİ';
+            else if (isUnlocked) statusText = 'SEÇ';
+            else statusText = `${c.price} ALTIN 🪙`;
+
+            div.innerHTML = `
+                <div class="char-info">
+                    <h3><span class="char-color-dot" style="background:${c.dotHex};"></span>${c.name}</h3>
+                    <span>${c.desc}</span>
+                </div>
+                <div class="char-status">${statusText}</div>
+            `;
+            container.appendChild(div);
+        });
+        const sel = CHARACTERS[selectedCharId];
+        document.getElementById('menu-selected-char').textContent = `Seçili Karakter: ${sel.name} — ${sel.desc}`;
+    }
+
+    function handleCharacterClick(id) {
+        initAudio();
+        const charObj = CHARACTERS[id];
+        const isUnlocked = unlockedChars.includes(id);
+
+        if (isUnlocked) {
+            selectedCharId = id;
+            saveProgress();
+            applyCharacterAppearance();
+            renderCharMenu();
+            showGameNotification(`✅ ${charObj.name} seçildi!`, 'rgba(39, 174, 96, 0.96)', 1600);
+        } else {
+            if (totalBankCoins >= charObj.price) {
+                totalBankCoins -= charObj.price;
+                unlockedChars.push(id);
+                selectedCharId = id;
+                saveProgress();
+                applyCharacterAppearance();
+                renderCharMenu();
+                playSound('buy');
+                showGameNotification(`🎉 ${charObj.name} satın alındı ve seçildi!`, 'rgba(39, 174, 96, 0.96)', 2200);
+            } else {
+                const eksik = charObj.price - totalBankCoins;
+                showGameNotification(`⚠️ Yetersiz altın! (${eksik} altın daha gerekli)`, 'rgba(192, 57, 43, 0.96)', 2200);
+            }
+        }
+    }
+
+    function openCharMenu() {
+        renderCharMenu();
+        document.getElementById('main-menu').classList.add('hidden');
+        document.getElementById('char-menu').classList.remove('hidden');
+    }
+
+    function openCharMenuFromOver() {
+        renderCharMenu();
+        document.getElementById('game-over-screen').classList.add('hidden');
+        document.getElementById('char-menu').classList.remove('hidden');
+    }
+
+    function closeCharMenu() {
+        document.getElementById('char-menu').classList.add('hidden');
+        document.getElementById('main-menu').classList.remove('hidden');
+    }
+
+    function updateLivesHUD() {
+        const hearts = currentLives > 1 ? '❤️❤️ (Yedek Can)' : '❤️';
+        document.getElementById('life-hud').textContent = hearts;
+    }
 
     function movePlayer(action) {
         if (gameState !== 'PLAYING') return;
@@ -252,7 +545,7 @@
         } else if (action === 'jump') {
             if (!player.isJumping && !player.isSliding) {
                 player.isJumping = true;
-                player.jumpVelocity = -15;
+                player.jumpVelocity = -18.5;
                 playSound('jump');
             }
         } else if (action === 'slide') {
@@ -270,15 +563,19 @@
         }
         if (gameState !== 'PLAYING') return;
 
-        if (e.key === 'ArrowLeft' || e.key === 'a') movePlayer('left');
-        else if (e.key === 'ArrowRight' || e.key === 'd') movePlayer('right');
-        else if (e.key === 'ArrowUp' || e.key === 'w') movePlayer('jump');
-        else if (e.key === 'ArrowDown' || e.key === 's') movePlayer('slide');
+        if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') movePlayer('left');
+        else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') movePlayer('right');
+        else if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') movePlayer('jump');
+        else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') movePlayer('slide');
     });
 
     function startGame() {
         initAudio();
+        const charData = CHARACTERS[selectedCharId];
+        applyCharacterAppearance();
+
         document.getElementById('main-menu').classList.add('hidden');
+        document.getElementById('char-menu').classList.add('hidden');
         document.getElementById('game-over-screen').classList.add('hidden');
         document.getElementById('pause-screen').classList.add('hidden');
         document.getElementById('pause-btn').classList.remove('hidden');
@@ -286,8 +583,10 @@
         document.getElementById('touch-controls').classList.remove('hidden');
 
         score = 0;
-        coins = 0;
-        gameSpeed = 9;
+        runCoins = 0;
+        currentLives = 1 + charData.extraLives;
+        invulnTimer = 0;
+        gameSpeed = 9.5;
         distanceTraveled = 0;
         obstacles = [];
         collectibleCoins = [];
@@ -296,12 +595,16 @@
         targetCurve = 0;
         curveTimer = 0;
         player.lane = 0;
+        player.y = 0;
         player.isJumping = false;
         player.isSliding = false;
 
-        document.getElementById('coin-hud').textContent = coins;
+        document.getElementById('char-hud').textContent = charData.name;
+        document.getElementById('mult-hud').textContent = charData.scoreMult > 1 ? '(2x)' : '';
+        document.getElementById('coin-hud').textContent = totalBankCoins;
         document.getElementById('score-hud').textContent = score;
         document.getElementById('high-score-hud').textContent = highScore;
+        updateLivesHUD();
 
         gameState = 'PLAYING';
         startBackgroundMusic();
@@ -322,17 +625,39 @@
         stopBackgroundMusic();
         document.getElementById('pause-screen').classList.add('hidden');
         document.getElementById('game-over-screen').classList.add('hidden');
+        document.getElementById('char-menu').classList.add('hidden');
         document.getElementById('hud').classList.add('hidden');
         document.getElementById('pause-btn').classList.add('hidden');
         document.getElementById('touch-controls').classList.add('hidden');
+        renderCharMenu();
         document.getElementById('main-menu').classList.remove('hidden');
+    }
+
+    function triggerObstacleHit(obsIndex) {
+        if (invulnTimer > 0) return;
+
+        if (currentLives > 1) {
+            currentLives--;
+            invulnTimer = 65;
+            shakeT = 18;
+            playSound('shield');
+            updateLivesHUD();
+            if (obstacles[obsIndex]) {
+                obstacles[obsIndex].z = -999;
+            }
+            showGameNotification("🛡️ YEDEK CAN KULLANILDI!", 'rgba(39, 174, 96, 0.96)', 2000);
+        } else {
+            gameOver();
+        }
     }
 
     function gameOver() {
         gameState = 'GAMEOVER';
-        shakeT = 28;
+        shakeT = 32;
         stopBackgroundMusic();
         playSound('crash');
+        saveProgress();
+
         document.getElementById('hud').classList.add('hidden');
         document.getElementById('pause-btn').classList.add('hidden');
         document.getElementById('touch-controls').classList.add('hidden');
@@ -340,29 +665,30 @@
 
         if (score > highScore) {
             highScore = score;
-            localStorage.setItem('temple_ult_high', highScore);
+            localStorage.setItem('bright_corridor_high', highScore);
             document.getElementById('high-score-hud').textContent = highScore;
         }
 
-        document.getElementById('final-stats-text').innerHTML = 
-            `Toplanan Altın: <b>${coins}</b><br>Kazanılan Skor: <b>${score}</b><br>En Yüksek Skor: <b>${highScore}</b>`;
+        const charData = CHARACTERS[selectedCharId];
+        document.getElementById('final-stats-text').innerHTML =
+            `Karakter: <b>${charData.name}</b><br>` +
+            `Bu Tur Toplanan Altın: <b>+${runCoins}</b> (Toplam: <b>${totalBankCoins}</b>)<br>` +
+            `Kazanılan Skor: <b>${score}</b><br>` +
+            `En Yüksek Skor: <b>${highScore}</b>`;
     }
 
     function spawnEntities() {
         spawnTimer++;
-        if (spawnTimer > Math.max(28, 80 - Math.floor(score / 350))) {
+        if (spawnTimer > Math.max(35, 85 - Math.floor(score / 450))) {
             spawnTimer = 0;
             let lane = Math.floor(Math.random() * 3) - 1;
             let typeRand = Math.random();
 
             if (typeRand < 0.35) {
-                // Yerde engel
-                obstacles.push({ lane: lane, z: 1000, type: 'barrier', width: 95, height: 85 });
-            } else if (typeRand < 0.65) {
-                // Altı boş, üstü dolu kemer (Eğilerek geçilir)
-                obstacles.push({ lane: lane, z: 1000, type: 'arch', width: 100, height: 110 });
+                obstacles.push({ lane: lane, z: 1000, type: 'barrier', width: 95, height: 65 });
+            } else if (typeRand < 0.68) {
+                obstacles.push({ lane: lane, z: 1000, type: 'arch', width: 100, height: 220 });
             } else {
-                // Altınlar
                 for (let i = 0; i < 3; i++) {
                     collectibleCoins.push({ lane: lane, z: 1000 + (i * 45) });
                 }
@@ -373,20 +699,20 @@
     function update() {
         if (gameState !== 'PLAYING') return;
 
+        const charData = CHARACTERS[selectedCharId];
+        if (invulnTimer > 0) invulnTimer--;
+
         distanceTraveled += gameSpeed;
-        score = Math.floor(distanceTraveled / 10) + (coins * 15);
+        score = Math.floor((distanceTraveled / 10) * charData.scoreMult) + (runCoins * 15 * charData.scoreMult);
         document.getElementById('score-hud').textContent = score;
-        document.getElementById('coin-hud').textContent = coins;
+        document.getElementById('coin-hud').textContent = totalBankCoins;
 
-        gameSpeed = 9.5 + Math.floor(score / 450);
-        animTimer += gameSpeed * 0.15;
+        gameSpeed = 9.5 + Math.floor(score / (500 * charData.scoreMult));
 
-        // Viraj ve Yol Dönüş Mekaniği
         curveTimer++;
         if (curveTimer > 180) {
             curveTimer = 0;
-            targetCurve = (Math.random() - 0.5) * 1.8; // Sağa veya sola dönüş
-            if (Math.abs(targetCurve) > 0.4) playSound('turn');
+            targetCurve = (Math.random() - 0.5) * 1.5;
         }
         roadCurve += (targetCurve - roadCurve) * 0.03;
 
@@ -412,12 +738,9 @@
 
             if (obs.z > 20 && obs.z < 90 && obs.lane === player.lane) {
                 if (obs.type === 'barrier') {
-                    gameOver();
+                    if (player.y > -45) triggerObstacleHit(i);
                 } else if (obs.type === 'arch') {
-                    // Üstü dolu, altı boş: Sadece eğilerek geçilebilir!
-                    if (!player.isSliding) {
-                        gameOver();
-                    }
+                    if (!player.isSliding) triggerObstacleHit(i);
                 }
             }
             if (obs.z < 0) obstacles.splice(i, 1);
@@ -428,7 +751,9 @@
             c.z -= gameSpeed;
 
             if (c.z > 20 && c.z < 90 && c.lane === player.lane) {
-                coins++;
+                runCoins++;
+                totalBankCoins++;
+                saveProgress();
                 playSound('coin');
                 spawnCoinFx(c);
                 collectibleCoins.splice(i, 1);
@@ -438,19 +763,16 @@
         }
     }
 
-    // =====================================================================
-    //  3B GERÇEKÇİ SAHNE (Three.js)  –  oyun mantığı yukarıdaki gibi aynen çalışır
-    // =====================================================================
     const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
     renderer.setSize(canvasWidth, canvasHeight);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.2;
+    renderer.toneMappingExposure = 1.35;
     const maxAniso = renderer.capabilities.getMaxAnisotropy();
 
     const scene = new THREE.Scene();
-    const FOG_COLOR = 0x1a1124;
-    scene.fog = new THREE.Fog(FOG_COLOR, 450, 2000);
+    const FOG_COLOR = 0xbce1ff;
+    scene.fog = new THREE.Fog(FOG_COLOR, 600, 2200);
     const camera = new THREE.PerspectiveCamera(62, canvasWidth / canvasHeight, 5, 6000);
 
     window.addEventListener('resize', () => {
@@ -461,7 +783,6 @@
         camera.updateProjectionMatrix();
     });
 
-    // ---- Yolun virajı: her malzemeye uygulanan eğrilik (Subway Surfers tarzı dünya bükme) ----
     const bendU = { value: 0 };
     function bendify(mat) {
         mat.onBeforeCompile = (shader) => {
@@ -478,48 +799,29 @@
         return mat;
     }
     function stdMat(color, rough, metal, env, extra) {
-        const o = { color: color, roughness: rough === undefined ? 0.9 : rough, metalness: metal || 0, envMapIntensity: env === undefined ? 0.3 : env };
+        const o = { color: color, roughness: rough === undefined ? 0.5 : rough, metalness: metal || 0, envMapIntensity: env === undefined ? 1.0 : env };
         if (extra) Object.assign(o, extra);
         return bendify(new THREE.MeshStandardMaterial(o));
     }
     function rnd(a, b) { return a + Math.random() * (b - a); }
 
-    // ---- Gökyüzü: gece, yıldızlar, ay ----
     const skyMat = new THREE.ShaderMaterial({
         side: THREE.BackSide, depthWrite: false, depthTest: false, fog: false,
-        uniforms: { top: { value: new THREE.Color(0x05050c) }, hor: { value: new THREE.Color(0x2a1a3a) }, moonDir: { value: new THREE.Vector3(-0.3, 0.25, -0.92) } },
+        uniforms: { top: { value: new THREE.Color(0x3498db) }, hor: { value: new THREE.Color(0xebf5fb) } },
         vertexShader: 'varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-        fragmentShader: 'uniform vec3 top; uniform vec3 hor; uniform vec3 moonDir; varying vec3 vDir;' +
-            'float hash(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }' +
-            'void main(){ vec3 d = normalize(vDir); float h = clamp(d.y * 1.4 + 0.1, 0.0, 1.0); vec3 col = mix(hor, top, pow(h, 0.6));' +
-            'float st = step(0.9972, hash(floor(d * 260.0))); col += vec3(st) * smoothstep(0.05, 0.4, d.y) * 0.9;' +
-            'float m = dot(d, normalize(moonDir)); col += vec3(0.88, 0.92, 1.0) * smoothstep(0.9988, 0.9994, m) * 1.6 + vec3(0.25, 0.3, 0.5) * pow(max(m, 0.0), 80.0) * 0.55;' +
+        fragmentShader: 'uniform vec3 top; uniform vec3 hor; varying vec3 vDir;' +
+            'void main(){ float h = clamp(vDir.y * 1.2 + 0.2, 0.0, 1.0); vec3 col = mix(hor, top, pow(h, 0.7));' +
             'gl_FragColor = vec4(col, 1.0); }'
     });
     const sky = new THREE.Mesh(new THREE.SphereGeometry(4000, 24, 16), skyMat);
-    sky.renderOrder = -100;
-    sky.frustumCulled = false;
+    sky.renderOrder = -100; sky.frustumCulled = false;
     scene.add(sky);
-    try {
-        const pm = new THREE.PMREMGenerator(renderer);
-        const envScene = new THREE.Scene();
-        envScene.add(new THREE.Mesh(new THREE.SphereGeometry(50, 32, 16), skyMat));
-        scene.environment = pm.fromScene(envScene, 0.03).texture;
-        pm.dispose();
-    } catch (e) { console.warn('Ortam haritası oluşturulamadı', e); }
 
-    // ---- Işıklar ----
-    scene.add(new THREE.HemisphereLight(0x6a5a8a, 0x1a1008, 0.55));
-    const moonLight = new THREE.DirectionalLight(0x8fa8ff, 0.55);
-    moonLight.position.set(-300, 500, 200);
-    scene.add(moonLight);
-    const torchLight = new THREE.PointLight(0xffa04a, 1.8, 700, 1.6);
-    scene.add(torchLight);
-    const farLight = new THREE.PointLight(0xff8a3a, 1.4, 1100, 1.4);
-    farLight.position.set(0, 220, -500);
-    scene.add(farLight);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x8d6e63, 1.0));
+    const sunLight = new THREE.DirectionalLight(0xfff5e6, 1.25);
+    sunLight.position.set(300, 800, 400);
+    scene.add(sunLight);
 
-    // ---- Procedürel dokular ----
     function mkCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
     function finishTex(c, rx, ry) {
         const t = new THREE.CanvasTexture(c);
@@ -530,338 +832,211 @@
     }
     function drawFloorCanvas() {
         const c = mkCanvas(512, 512), g = c.getContext('2d');
-        g.fillStyle = '#2c241e'; g.fillRect(0, 0, 512, 512);
-        for (let sy = 0; sy < 2; sy++) for (let sx = 0; sx < 2; sx++) {
-            g.fillStyle = 'hsl(' + rnd(24, 34).toFixed(0) + ',' + rnd(12, 22).toFixed(0) + '%,' + rnd(20, 30).toFixed(0) + '%)';
-            g.fillRect(sx * 256 + 5, sy * 256 + 5, 246, 246);
+        g.fillStyle = '#6d4c41'; g.fillRect(0, 0, 512, 512);
+        for (let sy = 0; sy < 4; sy++) for (let sx = 0; sx < 4; sx++) {
+            g.fillStyle = (sx + sy) % 2 === 0 ? '#8d6e63' : '#795548';
+            g.fillRect(sx * 128 + 3, sy * 128 + 3, 122, 122);
         }
-        for (let i = 0; i < 9000; i++) { const v = (rnd(0, 255)) | 0; g.fillStyle = 'rgba(' + v + ',' + v + ',' + v + ',' + rnd(0.02, 0.09).toFixed(3) + ')'; g.fillRect(rnd(0, 512), rnd(0, 512), rnd(1, 3), rnd(1, 3)); }
-        for (let i = 0; i < 8; i++) { g.fillStyle = 'rgba(60,90,40,' + rnd(0.10, 0.22).toFixed(2) + ')'; g.beginPath(); g.ellipse(rnd(0, 512), rnd(0, 512), rnd(10, 40), rnd(6, 24), rnd(0, 3), 0, Math.PI * 2); g.fill(); }
-        g.strokeStyle = 'rgba(8,6,4,0.65)'; g.lineWidth = 1.3;
-        for (let i = 0; i < 10; i++) {
-            let x = rnd(10, 500), y = rnd(10, 500);
-            g.beginPath(); g.moveTo(x, y);
-            for (let k = 0; k < 8; k++) { x += rnd(-22, 22); y += rnd(-22, 22); g.lineTo(x, y); }
-            g.stroke();
-        }
-        g.fillStyle = 'rgba(0,0,0,0.85)';
-        g.fillRect(0, 0, 512, 6); g.fillRect(0, 250, 512, 12); g.fillRect(0, 506, 512, 6);
-        g.fillRect(0, 0, 6, 512); g.fillRect(250, 0, 12, 512); g.fillRect(506, 0, 6, 512);
         return c;
     }
     function drawWallCanvas() {
         const c = mkCanvas(512, 512), g = c.getContext('2d');
-        g.fillStyle = '#16110d'; g.fillRect(0, 0, 512, 512);
+        g.fillStyle = '#5c0018'; g.fillRect(0, 0, 512, 512);
         for (let r = 0; r < 8; r++) {
             const off = (r % 2) * 64;
             for (let b = -1; b < 5; b++) {
                 const x = b * 128 + off, y = r * 64;
-                g.fillStyle = 'hsl(' + rnd(24, 36).toFixed(0) + ',' + rnd(14, 26).toFixed(0) + '%,' + rnd(22, 36).toFixed(0) + '%)';
+                g.fillStyle = (r + b) % 2 === 0 ? '#800020' : '#941233';
                 g.fillRect(x + 3, y + 3, 122, 58);
-                g.fillStyle = 'rgba(255,255,255,0.06)'; g.fillRect(x + 3, y + 3, 122, 4);
-                g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(x + 3, y + 56, 122, 5);
             }
         }
-        for (let i = 0; i < 7000; i++) { const v = (rnd(0, 255)) | 0; g.fillStyle = 'rgba(' + v + ',' + v + ',' + v + ',' + rnd(0.02, 0.08).toFixed(3) + ')'; g.fillRect(rnd(0, 512), rnd(0, 512), rnd(1, 3), rnd(1, 3)); }
-        for (let i = 0; i < 14; i++) { const x = rnd(0, 512); const gr = g.createLinearGradient(0, 0, 0, 512); gr.addColorStop(0, 'rgba(0,0,0,0.0)'); gr.addColorStop(1, 'rgba(0,0,0,0.30)'); g.fillStyle = gr; g.fillRect(x, 0, rnd(4, 14), 512); }
-        for (let i = 0; i < 6; i++) { g.fillStyle = 'rgba(60,90,40,' + rnd(0.10, 0.2).toFixed(2) + ')'; g.beginPath(); g.ellipse(rnd(0, 512), rnd(300, 512), rnd(20, 60), rnd(10, 30), 0, 0, Math.PI * 2); g.fill(); }
-        return c;
-    }
-    function drawPillarCanvas() {
-        const c = mkCanvas(256, 512), g = c.getContext('2d');
-        g.fillStyle = '#4a3f33'; g.fillRect(0, 0, 256, 512);
-        for (let x = 0; x < 256; x += 32) { g.fillStyle = 'rgba(0,0,0,0.38)'; g.fillRect(x, 0, 5, 512); g.fillStyle = 'rgba(255,255,255,0.08)'; g.fillRect(x + 8, 0, 3, 512); }
-        for (let i = 0; i < 6000; i++) { const v = (rnd(0, 255)) | 0; g.fillStyle = 'rgba(' + v + ',' + v + ',' + v + ',' + rnd(0.02, 0.08).toFixed(3) + ')'; g.fillRect(rnd(0, 256), rnd(0, 512), rnd(1, 3), rnd(1, 3)); }
-        [[40, 110], [400, 470]].forEach(b => {
-            g.fillStyle = 'rgba(0,0,0,0.45)'; g.fillRect(0, b[0], 256, b[1] - b[0]);
-            g.strokeStyle = 'rgba(212,164,55,0.55)'; g.lineWidth = 3;
-            for (let x = 14; x < 256; x += 36) { g.strokeRect(x, b[0] + 10, 22, b[1] - b[0] - 20); g.beginPath(); g.arc(x + 11, b[0] + 28, 5, 0, Math.PI * 2); g.stroke(); }
-        });
-        return c;
-    }
-    function drawGlyphCanvas() {
-        const c = mkCanvas(256, 256), g = c.getContext('2d');
-        g.fillStyle = '#7a3b2a'; g.fillRect(0, 0, 256, 256);
-        for (let i = 0; i < 5000; i++) { const v = (rnd(0, 255)) | 0; g.fillStyle = 'rgba(' + v + ',' + v + ',' + v + ',' + rnd(0.03, 0.10).toFixed(3) + ')'; g.fillRect(rnd(0, 256), rnd(0, 256), rnd(1, 3), rnd(1, 3)); }
-        g.strokeStyle = '#d4a437'; g.lineWidth = 6; g.strokeRect(10, 10, 236, 236);
-        g.lineWidth = 3; g.strokeRect(22, 22, 212, 212);
-        g.lineWidth = 5;
-        g.beginPath(); g.ellipse(128, 100, 52, 26, 0, 0, Math.PI * 2); g.stroke();
-        g.beginPath(); g.arc(128, 100, 12, 0, Math.PI * 2); g.fillStyle = '#d4a437'; g.fill();
-        g.beginPath(); g.moveTo(76, 100); g.lineTo(52, 124); g.stroke();
-        g.beginPath(); g.arc(128, 178, 18, 0, Math.PI * 2); g.stroke();
-        g.beginPath(); g.moveTo(128, 196); g.lineTo(128, 232); g.moveTo(110, 214); g.lineTo(146, 214); g.stroke();
-        for (let k = 0; k < 3; k++) { g.beginPath(); g.moveTo(40, 150 + k * 10); for (let x = 40; x < 90; x += 10) g.lineTo(x + 5, 150 + k * 10 + ((x / 10) % 2 ? -5 : 5)); g.stroke(); g.beginPath(); g.moveTo(166, 150 + k * 10); for (let x = 166; x < 216; x += 10) g.lineTo(x + 5, 150 + k * 10 + ((x / 10) % 2 ? -5 : 5)); g.stroke(); }
         return c;
     }
     function drawLinesCanvas() {
         const c = mkCanvas(512, 512), g = c.getContext('2d');
         [180.4, 331.6].forEach(x => {
             for (let y = 6; y < 512; y += 64) {
-                g.fillStyle = 'rgba(255,120,30,0.35)'; g.fillRect(x - 7, y - 3, 14, 38);
-                g.fillStyle = '#ff8a2a'; g.fillRect(x - 3.5, y, 7, 32);
-                g.fillStyle = '#ffd9a0'; g.fillRect(x - 1.5, y + 2, 3, 28);
+                g.fillStyle = '#f5deb3'; g.fillRect(x - 4, y, 8, 36);
             }
         });
         return c;
     }
-    function drawGlowCanvas(rgb) {
-        const c = mkCanvas(128, 128), g = c.getContext('2d');
-        const gr = g.createRadialGradient(64, 64, 2, 64, 64, 64);
-        gr.addColorStop(0, 'rgba(' + rgb + ',1)'); gr.addColorStop(0.3, 'rgba(' + rgb + ',0.45)'); gr.addColorStop(1, 'rgba(' + rgb + ',0)');
-        g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
-        return c;
-    }
-    const floorCv = drawFloorCanvas(), wallCv = drawWallCanvas(), pillarCv = drawPillarCanvas();
+
+    const floorCv = drawFloorCanvas(), wallCv = drawWallCanvas();
     const floorTex = finishTex(floorCv, 2, 2);
-    const ledgeTex = finishTex(wallCv, 1, 0.6);
+    const ledgeTex = finishTex(floorCv, 1, 0.6);
     const wallTex = finishTex(wallCv, 2, 1.5);
     const stoneTex = finishTex(wallCv, 0.5, 0.5);
-    const pillarTex = finishTex(pillarCv, 1, 1);
-    const glyphTex = finishTex(drawGlyphCanvas(), 1, 1);
     const linesTex = new THREE.CanvasTexture(drawLinesCanvas()); linesTex.anisotropy = maxAniso;
-    const glowTex = new THREE.CanvasTexture(drawGlowCanvas('255,190,90'));
-    const dustTex = new THREE.CanvasTexture(drawGlowCanvas('255,200,140'));
 
-    const floorMat = stdMat(0xffffff, 0.93, 0, 0.2, { map: floorTex, bumpMap: floorTex, bumpScale: 1.5 });
-    const ledgeMat = stdMat(0xd8d0c8, 0.95, 0, 0.2, { map: ledgeTex, bumpMap: ledgeTex, bumpScale: 1.5 });
-    const wallMat = stdMat(0xffffff, 0.95, 0, 0.2, { map: wallTex, bumpMap: wallTex, bumpScale: 2.0 });
-    const stoneMat = stdMat(0xcfc4b6, 0.95, 0, 0.2, { map: stoneTex, bumpMap: stoneTex, bumpScale: 1.5 });
-    const pillarMat = stdMat(0xffffff, 0.9, 0, 0.25, { map: pillarTex, bumpMap: pillarTex, bumpScale: 2.0 });
-    const goldMat = stdMat(0xd4a437, 0.3, 0.7, 1.6, { emissive: 0x3a2600 });
-    const ironMat = stdMat(0x1c1a19, 0.5, 0.6, 0.8);
-    const flameMat = bendify(new THREE.MeshBasicMaterial({ color: 0xffa233 }));
+    const floorMat = stdMat(0xffffff, 0.45, 0, 0.8, { map: floorTex });
+    const ledgeMat = stdMat(0xd7ccc8, 0.5, 0, 0.8, { map: ledgeTex });
+    const wallMat = stdMat(0xffffff, 0.45, 0, 0.8, { map: wallTex });
+    const stoneMat = stdMat(0xffcdd2, 0.45, 0, 0.8, { map: stoneTex });
+    const goldMat = stdMat(0xf1c40f, 0.2, 0.8, 1.5);
     const lineMat = bendify(new THREE.MeshBasicMaterial({ map: linesTex, transparent: true, depthWrite: false }));
-    const glowMat = bendify(new THREE.PointsMaterial({ map: glowTex, color: 0xffa040, size: 80, sizeAttenuation: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
-    const statueMat = stdMat(0x857b6e, 0.95, 0, 0.25);
 
-    // ---- İnsan modeli yardımcıları (koşucu + heykeller) ----
-    function rzMerge(list) {
-        const parts = list.map(g => g.index ? g.toNonIndexed() : g);
-        let total = 0;
-        parts.forEach(g => { total += g.attributes.position.count; });
-        const pos = new Float32Array(total * 3), nor = new Float32Array(total * 3);
-        const hasCol = parts.every(g => g.attributes.color);
-        const col = hasCol ? new Float32Array(total * 3) : null;
-        let o = 0;
-        parts.forEach(g => {
-            pos.set(g.attributes.position.array, o * 3);
-            nor.set(g.attributes.normal.array, o * 3);
-            if (hasCol) col.set(g.attributes.color.array, o * 3);
-            o += g.attributes.position.count;
-        });
-        const out = new THREE.BufferGeometry();
-        out.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-        out.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
-        if (hasCol) out.setAttribute('color', new THREE.BufferAttribute(col, 3));
-        return out;
-    }
-    function rzPiece(geo, x, y, z, sx, sy, sz, rx, ry, rz2) {
-        const m = new THREE.Matrix4();
-        m.compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx || 0, ry || 0, rz2 || 0)), new THREE.Vector3(sx, sy, sz));
-        const g = geo.clone();
-        g.applyMatrix4(m);
-        return g;
-    }
-    function rzColor(g, hex) {
-        const c = new THREE.Color(hex), n = g.attributes.position.count, a = new Float32Array(n * 3);
-        for (let i = 0; i < n; i++) { a[i * 3] = c.r; a[i * 3 + 1] = c.g; a[i * 3 + 2] = c.b; }
-        g.setAttribute('color', new THREE.BufferAttribute(a, 3));
-        return g;
-    }
     let rzHG = null;
     function rzGetHumanGeos() {
         if (rzHG) return rzHG;
         const S = (r, w, h) => new THREE.SphereGeometry(r, w || 10, h || 8);
         const C = (rt, rb, h, seg) => new THREE.CylinderGeometry(rt, rb, h, seg || 12);
-        const P = rzPiece;
+        const P = (geo, x, y, z, sx, sy, sz, rx, ry, rz2) => {
+            const m = new THREE.Matrix4();
+            m.compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx || 0, ry || 0, rz2 || 0)), new THREE.Vector3(sx, sy, sz));
+            const g = geo.clone(); g.applyMatrix4(m); return g;
+        };
+        const rzMerge = (list) => {
+            const parts = list.map(g => g.index ? g.toNonIndexed() : g);
+            let total = 0; parts.forEach(g => { total += g.attributes.position.count; });
+            const pos = new Float32Array(total * 3), nor = new Float32Array(total * 3);
+            let o = 0;
+            parts.forEach(g => {
+                pos.set(g.attributes.position.array, o * 3);
+                nor.set(g.attributes.normal.array, o * 3);
+                o += g.attributes.position.count;
+            });
+            const out = new THREE.BufferGeometry();
+            out.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            out.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+            return out;
+        };
         const hg = {};
         hg.skinBody = rzMerge([
             P(C(1.8, 2.0, 5.5), 0, 48.4, 0, 1, 1, 1),
             P(S(5.3, 14, 12), 0, 53.6, 0, 0.86, 1.06, 0.95),
-            P(S(3.6, 12, 10), 0, 50.8, 0.9, 0.95, 0.8, 0.9),
-            P(S(1.0, 8, 6), -5.0, 53.2, 0, 0.45, 1.0, 0.7),
-            P(S(1.0, 8, 6), 5.0, 53.2, 0, 0.45, 1.0, 0.7),
-            P(new THREE.ConeGeometry(0.95, 2.2, 8), 0, 52.4, 5.3, 1, 1, 1, Math.PI / 2, 0, 0)
+            P(S(3.6, 12, 10), 0, 50.8, 0.9, 0.95, 0.8, 0.9)
         ]);
         hg.shirtBody = rzMerge([
             P(C(6.0, 6.6, 9, 16), 0, 26.5, 0, 1.15, 1, 0.78),
-            P(C(7.7, 6.2, 16, 16), 0, 38, 0, 1.2, 1, 0.7),
-            P(S(3.7, 12, 10), -9.4, 44, 0, 1, 1, 1),
-            P(S(3.7, 12, 10), 9.4, 44, 0, 1, 1, 1),
-            P(C(2.4, 2.7, 1.6, 12), 0, 46.4, 0, 1.2, 1, 1)
+            P(C(7.7, 6.2, 16, 16), 0, 38, 0, 1.2, 1, 0.7)
         ]);
         hg.pantsBody = rzMerge([P(C(6.4, 6.9, 7, 16), 0, 23, 0, 1.15, 1, 0.78)]);
-        hg.hair = rzMerge([
-            P(new THREE.SphereGeometry(5.55, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.45), 0, 54.2, -0.4, 0.9, 1.0, 1.0),
-            P(S(5.0, 12, 10), 0, 52.6, -1.8, 0.88, 0.95, 0.7)
-        ]);
+        hg.hair = rzMerge([P(new THREE.SphereGeometry(5.55, 14, 10), 0, 54.2, -0.4, 0.9, 1.0, 1.0)]);
         hg.features = rzMerge([
-            rzColor(P(S(0.85, 8, 6), -1.9, 53.8, 4.65, 1, 0.8, 0.5), 0xffffff),
-            rzColor(P(S(0.85, 8, 6), 1.9, 53.8, 4.65, 1, 0.8, 0.5), 0xffffff),
-            rzColor(P(S(0.45, 8, 6), -1.9, 53.8, 4.95, 1, 1, 0.5), 0x3b2a1a),
-            rzColor(P(S(0.45, 8, 6), 1.9, 53.8, 4.95, 1, 1, 0.5), 0x3b2a1a),
-            rzColor(P(new THREE.BoxGeometry(2.2, 0.4, 0.5), -1.9, 55.2, 4.85, 1, 1, 1), 0x2a1c12),
-            rzColor(P(new THREE.BoxGeometry(2.2, 0.4, 0.5), 1.9, 55.2, 4.85, 1, 1, 1), 0x2a1c12),
-            rzColor(P(new THREE.BoxGeometry(2.4, 0.35, 0.5), 0, 49.9, 3.95, 1, 1, 1), 0x8a3b3b)
+            P(S(0.45, 8, 6), -1.9, 53.8, 4.95, 1, 1, 0.5),
+            P(S(0.45, 8, 6), 1.9, 53.8, 4.95, 1, 1, 0.5)
         ]);
         hg.sleeve = rzMerge([P(C(2.7, 2.4, 7.5, 10), 0, -3.6, 0, 1, 1, 1)]);
         hg.upperSkin = rzMerge([P(C(2.25, 2.05, 4.2, 10), 0, -9.2, 0, 1, 1, 1)]);
-        hg.foreArm = rzMerge([
-            P(S(2.1, 8, 6), 0, 0, 0, 1, 1, 1),
-            P(C(2.0, 1.5, 9, 10), 0, -4.5, 0, 1, 1, 1),
-            P(S(1.75, 8, 6), 0, -10.2, 0, 0.85, 1.2, 1.0),
-            P(S(0.7, 6, 5), 1.4, -9.2, 0.9, 1, 1, 1)
-        ]);
-        hg.thigh = rzMerge([P(C(3.4, 2.6, 10.4, 12), 0, -5.2, 0, 1, 1, 1.05), P(S(2.7, 8, 6), 0, -10.4, 0, 1, 1, 1)]);
+        hg.foreArm = rzMerge([P(C(2.0, 1.5, 9, 10), 0, -4.5, 0, 1, 1, 1)]);
+        hg.thigh = rzMerge([P(C(3.4, 2.6, 10.4, 12), 0, -5.2, 0, 1, 1, 1.05)]);
         hg.calf = rzMerge([P(C(2.6, 1.8, 9.2, 12), 0, -4.6, 0, 1, 1, 1.05)]);
-        hg.shoe = rzMerge([P(new THREE.BoxGeometry(4.2, 3.0, 8.6), 0, -8.0, 1.6, 1, 1, 1), P(S(2.2, 8, 6), 0, -8.0, 5.4, 1.0, 0.7, 1.0)]);
+        hg.shoe = rzMerge([P(new THREE.BoxGeometry(4.2, 3.0, 8.6), 0, -8.0, 1.6, 1, 1, 1)]);
         rzHG = hg;
         return hg;
     }
 
-    // Kâşif (oyuncu): şapka, yelek, kemer, çanta; eklemli kollar/bacaklar
+    const playerMats = {
+        skin: stdMat(0xffdbac, 0.5, 0, 1.0),
+        shirt: stdMat(0x2980b9, 0.4),
+        pants: stdMat(0xecf0f1, 0.4),
+        hair: stdMat(0xf39c12, 0.4),
+        boot: stdMat(0x2c3e50, 0.4)
+    };
+
+    function applyCharacterAppearance() {
+        const c = CHARACTERS[selectedCharId];
+        playerMats.shirt.color.setHex(c.shirtColor);
+        playerMats.pants.color.setHex(c.pantsColor);
+        playerMats.hair.color.setHex(c.hairColor);
+    }
+
     function buildExplorer() {
         const G = rzGetHumanGeos();
         const root = new THREE.Group(), model = new THREE.Group(), body = new THREE.Group();
         root.add(model); model.add(body);
         model.scale.setScalar(2);
-        root.rotation.y = Math.PI;   // yüz -z yönüne (ileri) baksın
-        const skinM = stdMat(0xe8b88a, 0.6, 0, 0.3, { emissive: 0x2a1a10 });
-        const shirtM = stdMat(0xb8a074, 0.9), vestM = stdMat(0x6a4426, 0.7, 0.05), pantsM = stdMat(0x4a3b2a, 0.9);
-        const hairM = stdMat(0x2b1d12, 0.5, 0.15, 0.4), bootM = stdMat(0x2b1b10, 0.55, 0.05, 0.4), hatM = stdMat(0x5a3a1e, 0.85), bandM = stdMat(0x2b1b10, 0.8);
-        const featM = bendify(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, envMapIntensity: 0.3 }));
-        const C = (rt, rb, h, s) => new THREE.CylinderGeometry(rt, rb, h, s || 14);
+        root.rotation.y = Math.PI;
         const add = (geo, mat, parent) => { const m = new THREE.Mesh(geo, mat); parent.add(m); return m; };
-        add(G.skinBody, skinM, body); add(G.shirtBody, shirtM, body); add(G.pantsBody, pantsM, body); add(G.hair, hairM, body); add(G.features, featM, body);
-        const vest = add(C(7.9, 6.4, 13.5, 16), vestM, body); vest.scale.set(1.22, 1, 0.72); vest.position.set(0, 39, 0);
-        const belt = add(C(6.7, 6.7, 1.8, 16), stdMat(0x2a1a10, 0.6), body); belt.scale.set(1.17, 1, 0.8); belt.position.set(0, 29.8, 0);
-        add(new THREE.BoxGeometry(2, 1.6, 0.8), goldMat, body).position.set(0, 29.8, 5.7);
-        add(new THREE.BoxGeometry(5.5, 11, 13), vestM, body).position.set(-9.6, 27.5, -1);
-        const strap = add(new THREE.BoxGeometry(1.8, 34, 0.8), vestM, body); strap.position.set(0, 38, 5.2); strap.rotation.z = -0.62;
-        const crown = add(C(4.3, 5.0, 4.4, 18), hatM, body); crown.position.set(0, 59.0, 0);
-        const brim = add(C(8.6, 8.6, 0.5, 24), hatM, body); brim.position.set(0, 57.0, 0.4); brim.rotation.x = 0.08;
-        add(C(5.1, 5.1, 1.0, 18), bandM, body).position.set(0, 57.7, 0);
+        add(G.skinBody, playerMats.skin, body);
+        add(G.shirtBody, playerMats.shirt, body);
+        add(G.pantsBody, playerMats.pants, body);
+        add(G.hair, playerMats.hair, body);
+        add(G.features, playerMats.skin, body);
+        
         const mkArm = x => {
             const arm = new THREE.Group(); arm.position.set(x, 44, 0);
-            add(G.sleeve, shirtM, arm); add(G.upperSkin, skinM, arm);
+            add(G.sleeve, playerMats.shirt, arm); add(G.upperSkin, playerMats.skin, arm);
             const elbow = new THREE.Group(); elbow.position.set(0, -11, 0);
-            add(G.foreArm, skinM, elbow); arm.add(elbow); body.add(arm);
+            add(G.foreArm, playerMats.skin, elbow); arm.add(elbow); body.add(arm);
             return { arm: arm, elbow: elbow };
         };
         const mkLeg = x => {
             const leg = new THREE.Group(); leg.position.set(x, 20, 0);
-            add(G.thigh, pantsM, leg);
+            add(G.thigh, playerMats.pants, leg);
             const knee = new THREE.Group(); knee.position.set(0, -10.4, 0);
-            add(G.calf, pantsM, knee); add(G.shoe, bootM, knee); leg.add(knee); body.add(leg);
+            add(G.calf, playerMats.pants, knee); add(G.shoe, playerMats.boot, knee); leg.add(knee); body.add(leg);
             return { leg: leg, knee: knee };
         };
         const aL = mkArm(-9.8), aR = mkArm(9.8), lL = mkLeg(-4.2), lR = mkLeg(4.2);
         return { root: root, body: body, armL: aL.arm, armR: aR.arm, elbowL: aL.elbow, elbowR: aR.elbow, legL: lL.leg, legR: lR.leg, kneeL: lL.knee, kneeR: lR.knee };
     }
     const ex = buildExplorer();
+    applyCharacterAppearance();
     scene.add(ex.root);
-    // oyuncunun altındaki yumuşak gölge
+
     const blobCv = mkCanvas(128, 128), bg = blobCv.getContext('2d');
     const bgr = bg.createRadialGradient(64, 64, 4, 64, 64, 64);
-    bgr.addColorStop(0, 'rgba(0,0,0,0.65)'); bgr.addColorStop(1, 'rgba(0,0,0,0)');
+    bgr.addColorStop(0, 'rgba(0,0,0,0.35)'); bgr.addColorStop(1, 'rgba(0,0,0,0)');
     bg.fillStyle = bgr; bg.fillRect(0, 0, 128, 128);
     const blob = new THREE.Mesh(new THREE.PlaneGeometry(90, 70), bendify(new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(blobCv), transparent: true, depthWrite: false })));
     blob.rotation.x = -Math.PI / 2; blob.position.y = 1;
     scene.add(blob);
 
-    // Heykel geometrisi (taştan, yan nişlerde)
-    function buildStatueGeo() {
-        const G = rzGetHumanGeos(), P = rzPiece, list = [G.skinBody, G.shirtBody, G.pantsBody, G.hair];
-        [-1, 1].forEach(s => {
-            list.push(P(G.sleeve, s * 9.8, 44, 0, 1, 1, 1), P(G.upperSkin, s * 9.8, 44, 0, 1, 1, 1), P(G.foreArm, s * 9.8, 33, 0, 1, 1, 1));
-            list.push(P(G.thigh, s * 4.2, 20, 0, 1, 1, 1), P(G.calf, s * 4.2, 9.6, 0, 1, 1, 1), P(G.shoe, s * 4.2, 9.6, 0, 1, 1, 1));
-        });
-        list.push(P(new THREE.CylinderGeometry(0.8, 0.8, 74, 8), 12.2, 36, 3, 1, 1, 1));   // asa
-        return rzMerge(list);
-    }
-    const statueGeo = buildStatueGeo();
-
-    // ---- Tapınak koridoru: kayan parçalar (chunk) ----
     const CH_LEN = 400, CH_COUNT = 6;
     const floorGeo = new THREE.PlaneGeometry(440, CH_LEN);
     const ledgeGeo = new THREE.BoxGeometry(110, 14, CH_LEN);
     const wallGeo = new THREE.BoxGeometry(40, 300, CH_LEN);
     const corniceGeo = new THREE.BoxGeometry(70, 18, CH_LEN);
-    const pBaseGeo = new THREE.BoxGeometry(46, 20, 46), pShaftGeo = new THREE.CylinderGeometry(15, 17, 220, 20), pCapGeo = new THREE.BoxGeometry(58, 16, 58);
-    const holderGeo = new THREE.CylinderGeometry(3, 3.6, 30, 8), flameGeo = new THREE.ConeGeometry(7, 24, 8);
-    const beamGeo = new THREE.BoxGeometry(740, 34, 56), pedGeo = new THREE.BoxGeometry(60, 30, 60);
     const chunks = [];
     function buildChunk() {
         const g = new THREE.Group();
         const floor = new THREE.Mesh(floorGeo, floorMat); floor.rotation.x = -Math.PI / 2; g.add(floor);
         const lines = new THREE.Mesh(floorGeo, lineMat); lines.rotation.x = -Math.PI / 2; lines.position.y = 0.6; g.add(lines);
-        const flamePts = [];
         [-1, 1].forEach(s => {
             const ledge = new THREE.Mesh(ledgeGeo, ledgeMat); ledge.position.set(s * 275, 7, 0); g.add(ledge);
             const wall = new THREE.Mesh(wallGeo, wallMat); wall.position.set(s * 350, 150, 0); g.add(wall);
             const cor = new THREE.Mesh(corniceGeo, stoneMat); cor.position.set(s * 335, 308, 0); g.add(cor);
-            [-100, 100].forEach(zz => {
-                const base = new THREE.Mesh(pBaseGeo, stoneMat); base.position.set(s * 300, 10, zz);
-                const shaft = new THREE.Mesh(pShaftGeo, pillarMat); shaft.position.set(s * 300, 130, zz);
-                const cap = new THREE.Mesh(pCapGeo, stoneMat); cap.position.set(s * 300, 250, zz);
-                const holder = new THREE.Mesh(holderGeo, ironMat); holder.position.set(s * 282, 152, zz); holder.rotation.z = s * 0.35;
-                const flame = new THREE.Mesh(flameGeo, flameMat); flame.position.set(s * 278, 180, zz);
-                g.add(base, shaft, cap, holder, flame);
-                flamePts.push(s * 278, 182, zz);
-            });
         });
-        const pgeo = new THREE.BufferGeometry();
-        pgeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(flamePts), 3));
-        const glow = new THREE.Points(pgeo, glowMat); glow.frustumCulled = false; g.add(glow);
-        const beam = new THREE.Mesh(beamGeo, stoneMat); beam.position.set(0, 338, 0); g.add(beam);
-        const statues = [-1, 1].map(s => {
-            const grp = new THREE.Group();
-            const ped = new THREE.Mesh(pedGeo, stoneMat); ped.position.y = 15;
-            const st = new THREE.Mesh(statueGeo, statueMat); st.scale.setScalar(3.2); st.position.y = 30; st.rotation.y = -s * Math.PI / 2;
-            grp.add(ped, st); grp.position.set(s * 296, 0, 0); g.add(grp);
-            return grp;
-        });
-        g.userData = { beam: beam, statues: statues };
         return g;
-    }
-    function randomizeChunk(c) {
-        c.userData.beam.visible = Math.random() < 0.75;
-        c.userData.statues[0].visible = Math.random() < 0.55;
-        c.userData.statues[1].visible = Math.random() < 0.55;
     }
     for (let i = 0; i < CH_COUNT; i++) {
         const c = buildChunk();
         c.position.z = 200 - i * CH_LEN;
-        randomizeChunk(c);
         scene.add(c);
         chunks.push(c);
     }
 
-    // ---- Engeller ve altınlar ----
-    const barrierGeo = new THREE.BoxGeometry(95, 85, 70), barrierCapGeo = new THREE.BoxGeometry(105, 10, 80), studGeo = new THREE.SphereGeometry(4, 8, 6);
-    const barrierSide = stdMat(0x7a5a46, 0.9, 0, 0.2, { map: stoneTex, bumpMap: stoneTex, bumpScale: 1.5 });
-    const barrierFront = stdMat(0xffffff, 0.8, 0, 0.3, { map: glyphTex, bumpMap: glyphTex, bumpScale: 1.5 });
+    const barrierGeo = new THREE.BoxGeometry(95, 65, 50);
+    const barrierCapGeo = new THREE.BoxGeometry(105, 10, 60);
+    const barrierSide = stdMat(0x27ae60, 0.4);
+    const barrierFront = stdMat(0x2ecc71, 0.4);
     const barrierMats = [barrierSide, barrierSide, barrierSide, barrierSide, barrierFront, barrierFront];
-    const lintelGeo = new THREE.BoxGeometry(140, 36, 56), archPillarGeo = new THREE.BoxGeometry(22, 75, 44), trimGeo = new THREE.BoxGeometry(142, 4, 58);
-    const runeGeo = new THREE.BoxGeometry(100, 3, 1);
-    const runeMat = bendify(new THREE.MeshBasicMaterial({ color: 0xff5533 }));
-    const archStone = stdMat(0x78281f, 0.85, 0, 0.25, { map: stoneTex, bumpMap: stoneTex, bumpScale: 1.5 });
+    
+    const lintelGeo = new THREE.BoxGeometry(140, 145, 56);
+    const archPillarGeo = new THREE.BoxGeometry(22, 220, 44);
+    const trimGeo = new THREE.BoxGeometry(144, 6, 60);
+    const archStone = stdMat(0xecf0f1, 0.4);
+    
     const coinGeo = new THREE.CylinderGeometry(14, 14, 4, 28), coinCenterGeo = new THREE.CylinderGeometry(9, 9, 5.4, 24);
-    const coinMat = stdMat(0xffc933, 0.28, 0.65, 1.6, { emissive: 0x6b4a00 });
-    const coinCenterMat = stdMat(0xffe27a, 0.25, 0.7, 1.6, { emissive: 0x7a5800 });
+    const coinMat = stdMat(0xf1c40f, 0.2, 0.8, 1.5, { emissive: 0xd4ac0d });
+    const coinCenterMat = stdMat(0xf39c12, 0.2, 0.8, 1.5, { emissive: 0xd68910 });
 
     function makeObstacle(o) {
         const grp = new THREE.Group();
         if (o.type === 'barrier') {
-            const b = new THREE.Mesh(barrierGeo, barrierMats); b.position.y = 42.5; grp.add(b);
-            const cap = new THREE.Mesh(barrierCapGeo, goldMat); cap.position.y = 90; grp.add(cap);
-            [[-46, 8], [46, 8], [-46, 78], [46, 78]].forEach(p => { const s = new THREE.Mesh(studGeo, goldMat); s.position.set(p[0], p[1], 36); grp.add(s); });
+            const b = new THREE.Mesh(barrierGeo, barrierMats); b.position.y = 32.5; grp.add(b);
+            const cap = new THREE.Mesh(barrierCapGeo, goldMat); cap.position.y = 70; grp.add(cap);
         } else {
-            const lin = new THREE.Mesh(lintelGeo, archStone); lin.position.y = 93; grp.add(lin);
-            const trim = new THREE.Mesh(trimGeo, goldMat); trim.position.y = 112; grp.add(trim);
-            [-50, 50].forEach(x => { const p = new THREE.Mesh(archPillarGeo, archStone); p.position.set(x, 37.5, 0); grp.add(p); });
-            [-28.5, 28.5].forEach(z => { const r = new THREE.Mesh(runeGeo, runeMat); r.position.set(0, 80, z); grp.add(r); });
+            const lin = new THREE.Mesh(lintelGeo, archStone); lin.position.y = 147.5; grp.add(lin);
+            const trim = new THREE.Mesh(trimGeo, goldMat); trim.position.y = 222; grp.add(trim);
+            const lowerTrim = new THREE.Mesh(trimGeo, goldMat); lowerTrim.position.y = 75; grp.add(lowerTrim);
+            [-50, 50].forEach(x => {
+                const p = new THREE.Mesh(archPillarGeo, archStone);
+                p.position.set(x, 110, 0);
+                grp.add(p);
+            });
         }
         return grp;
     }
@@ -899,14 +1074,13 @@
         }
     }
 
-    // ---- Altın patlaması efekti ----
     const fxList = [];
     const fxGeo = new THREE.SphereGeometry(2.4, 6, 5);
     function spawnCoinFx(c) {
         c._taken = true;
         const x = c.lane * 130;
         for (let i = 0; i < 9; i++) {
-            const m = new THREE.Mesh(fxGeo, bendify(new THREE.MeshBasicMaterial({ color: 0xffd34d, transparent: true })));
+            const m = new THREE.Mesh(fxGeo, bendify(new THREE.MeshBasicMaterial({ color: 0xf1c40f, transparent: true })));
             m.position.set(x, 40, 0);
             scene.add(m);
             const a = Math.random() * Math.PI * 2, s = rnd(1.5, 4);
@@ -924,20 +1098,6 @@
         }
     }
 
-    // ---- Havada uçuşan kıvılcım / toz ----
-    const EMBER_N = 150;
-    const emberPos = new Float32Array(EMBER_N * 3), emberVel = [];
-    for (let i = 0; i < EMBER_N; i++) {
-        emberPos[i * 3] = rnd(-320, 320); emberPos[i * 3 + 1] = rnd(10, 320); emberPos[i * 3 + 2] = rnd(-1700, 250);
-        emberVel.push({ x: rnd(-0.3, 0.3), y: rnd(0.05, 0.4) });
-    }
-    const emberGeo = new THREE.BufferGeometry();
-    emberGeo.setAttribute('position', new THREE.BufferAttribute(emberPos, 3));
-    const embers = new THREE.Points(emberGeo, bendify(new THREE.PointsMaterial({ map: dustTex, color: 0xffb060, size: 7, sizeAttenuation: true, transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending, fog: false })));
-    embers.frustumCulled = false;
-    scene.add(embers);
-
-    // ---- Koşucu animasyonu ----
     let runPhase = 0, slideAmt = 0, airAmt = 0, shakeT = 0, camX = 0;
     function animateExplorer(t) {
         const moving = gameState === 'PLAYING' || gameState === 'PAUSED';
@@ -947,6 +1107,9 @@
         airAmt += ((player.isJumping ? 1 : 0) - airAmt) * 0.3;
         const run = moving ? (1 - airAmt) * (1 - slideAmt) : 0;
         const idle = moving ? 0 : 1;
+
+        ex.root.visible = invulnTimer > 0 ? (Math.floor(invulnTimer / 4) % 2 === 0) : true;
+
         ex.legL.rotation.x = run * -sw + airAmt * -0.75 + slideAmt * -0.15;
         ex.legR.rotation.x = run * sw + airAmt * 0.2 + slideAmt * -0.15;
         ex.kneeL.rotation.x = run * Math.max(0, Math.cos(runPhase)) * 1.3 + airAmt * 1.3 + slideAmt * 0.1;
@@ -958,7 +1121,6 @@
         ex.body.rotation.x = run * 0.18 - slideAmt * 1.2 + airAmt * 0.12;
         ex.body.rotation.y = run * sw * 0.12;
         ex.body.position.y = run * Math.abs(Math.sin(runPhase)) * 3 + slideAmt * 4;
-        ex.body.scale.y = 1 + Math.sin(t * 1.9) * 0.006 * idle;
         ex.root.position.set(player.currentXOffset, -player.y, 0);
         const sh = Math.max(0.25, 1 - (-player.y) / 260);
         blob.position.x = player.currentXOffset;
@@ -971,38 +1133,19 @@
         bendU.value = roadCurve * 0.00036;
         chunks.forEach(c => {
             c.position.z += mv;
-            if (c.position.z > 600) { c.position.z -= CH_LEN * CH_COUNT; randomizeChunk(c); }
+            if (c.position.z > 600) c.position.z -= CH_LEN * CH_COUNT;
         });
         syncVisuals(mv, t);
         updateFx(mv);
         animateExplorer(t);
 
-        // kıvılcımlar
-        for (let i = 0; i < EMBER_N; i++) {
-            emberPos[i * 3] += emberVel[i].x + Math.sin(t * 2 + i) * 0.15;
-            emberPos[i * 3 + 1] += emberVel[i].y;
-            emberPos[i * 3 + 2] += mv * 0.9 + 0.3;
-            if (emberPos[i * 3 + 2] > 260 || emberPos[i * 3 + 1] > 340) {
-                emberPos[i * 3] = rnd(-320, 320); emberPos[i * 3 + 1] = rnd(5, 120); emberPos[i * 3 + 2] = rnd(-1700, -900);
-            }
-        }
-        emberGeo.attributes.position.needsUpdate = true;
-        glowMat.size = 80 + Math.sin(t * 14) * 8 + Math.random() * 4;
-
-        // meşale ışıkları
-        torchLight.position.set(player.currentXOffset * 0.6, 170, 60);
-        torchLight.intensity = 1.8 + Math.sin(t * 20) * 0.15 + Math.random() * 0.12;
-
-        // kamera
         camX += (player.currentXOffset * 0.55 - camX) * 0.1;
         let shx = 0, shy = 0;
         if (shakeT > 0) { shakeT--; shx = (Math.random() - 0.5) * shakeT * 0.8; shy = (Math.random() - 0.5) * shakeT * 0.8; }
         const idleSway = gameState === 'MENU' ? Math.sin(t * 0.4) * 40 : 0;
-        camera.position.set(camX + shx + idleSway, 175 - slideAmt * 40 + shy, 235);
+        camera.position.set(camX + shx + idleSway, 185 - slideAmt * 40 + shy, 255);
         camera.lookAt(player.currentXOffset * 0.35, 62, -430);
         camera.rotateZ(-(player.lane * 130 - player.currentXOffset) * 0.0009);
-        const fov = 62 + (gameSpeed - 9.5) * 0.6;
-        if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = fov; camera.updateProjectionMatrix(); }
         sky.position.copy(camera.position);
 
         renderer.render(scene, camera);
@@ -1014,6 +1157,7 @@
         requestAnimationFrame(gameLoop);
     }
 
+    renderCharMenu();
     requestAnimationFrame(gameLoop);
 </script>
 </body>
